@@ -1,5 +1,7 @@
 ### Install
 
+#### Using pip
+
 You can install Aletheia with the following command:
 
 ```bash
@@ -106,7 +108,16 @@ COMMANDS:
 
 ```
 
+#### Using Docker
 
+You can use Aletheia with Docker by building a Docker image with the following command:
 
+```bash
+$ docker build -t aletheia .
+```
 
+And then you can run Aletheia with the following command:
 
+```bash
+$ docker run -it aletheia
+```
