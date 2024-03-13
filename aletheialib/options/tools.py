@@ -12,8 +12,9 @@ doc = "\n" \
 "  - plot-histogram:        Plot histogram.\n" \
 "  - plot-histogram-diff:   Plot histogram of differences.\n" \
 "  - plot-dct-histogram:    Plot DCT histogram.\n" \
-"  - eof-extrat:            Extract the data after EOF.\n" \
+"  - eof-extract:           Extract the data after EOF.\n" \
 "  - print-metadata:        Print Exif metadata.\n" \
+"  - lsb-extract:           Extract data from the LSBs.\n"
 
 
 # {{{ hpf
@@ -268,4 +269,16 @@ def print_metadata():
     sys.exit(0)
 # }}}
 
+def lsb_extract():
+    if len(sys.argv)!=3:
+        print(sys.argv[0], "lsb-extract <input-image> [num-lsbs]\n")
+        print("")
+        sys.exit(0)
 
+    if not os.path.isfile(sys.argv[2]):
+        print("Please, provide a valid image!\n")
+
+    import aletheialib.attacks
+    num_lsbs = int(sys.argv[3]) if len(sys.argv) == 4 else 1
+    aletheialib.attacks.lsb_extract(sys.argv[2], num_lsbs)
+    sys.exit(0)
