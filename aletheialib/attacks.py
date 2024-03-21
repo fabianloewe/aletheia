@@ -661,7 +661,7 @@ def _extract_message(img_path: Path, bits: int, direction='msb', convert_mode='R
             return _extract_bits_lsb(data, bits)
 
 
-def lsb_extract(input_image, bits=1):
+def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb'):
     """Extract a message from an image using the LSBs method and print it."""
-    message = _extract_message(input_image, bits)
+    message = _extract_message(input_image, bits, direction, channels=channels)
     print(message.tobytes().decode('utf-8'))

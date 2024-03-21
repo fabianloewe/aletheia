@@ -270,8 +270,9 @@ def print_metadata():
 # }}}
 
 def lsb_extract():
-    if len(sys.argv)<3:
-        print(sys.argv[0], "lsb-extract <input-image> [num-lsbs]\n")
+
+    if 2 < len(sys.argv) < 6:
+        print(sys.argv[0], "lsb-extract <input-image> [num-lsbs] [channels=R|G|B|A] [direction=msb|lsb]\n")
         print("")
         sys.exit(0)
 
@@ -279,6 +280,8 @@ def lsb_extract():
         print("Please, provide a valid image!\n")
 
     import aletheialib.attacks
-    num_lsbs = int(sys.argv[3]) if len(sys.argv) == 4 else 1
-    aletheialib.attacks.lsb_extract(sys.argv[2], num_lsbs)
+    num_lsbs = int(sys.argv[3]) if len(sys.argv) >= 4 else 1
+    channels = sys.argv[4].upper() if len(sys.argv) >= 5 else "RGB"
+    direction = sys.argv[5].lower() if len(sys.argv) >= 6 else "lsb"
+    aletheialib.attacks.lsb_extract(sys.argv[2], num_lsbs, channels, direction)
     sys.exit(0)
