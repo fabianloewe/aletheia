@@ -271,7 +271,7 @@ def print_metadata():
 
 def lsb_extract():
 
-    if 2 < len(sys.argv) < 6:
+    if 3 >= len(sys.argv) >= 6:
         print(sys.argv[0], "lsb-extract <input-image> [num-lsbs] [channels=R|G|B|A] [direction=msb|lsb]\n")
         print("")
         sys.exit(0)
