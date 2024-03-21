@@ -579,30 +579,89 @@ def eof_extract(input_image, output_data):
 
 # }}}
 
-def _extract_lsbs(input_image, bits=1):
-    """Extract a message from an image using the LSBs method."""
-    with Image.open(input_image) as img:
-        data = np.array(img.convert('RGB'))
+def _extract_bits_opt_lsb(data, bits: int):
+    div = 8 // bits
+    message = np.zeros(len(data) // div, dtype=np.uint8)
+    mask = (1 << bits) - 1
+    for i in range(div):
+        shift = bits * i
+        message |= (data[i::div] & mask) << shift
+    return message
 
-    used_bits = 0
-    byte = 0
+
+def _extract_bits_opt_msb(data, bits: int):
+    div = 8 // bits
+    message = np.zeros(len(data) // div, dtype=np.uint8)
+    mask = (1 << bits) - 1
+    for i in range(div):
+        shift = 8 - bits - (bits * i)
+        message |= (data[i::div] & mask) << shift
+    return message
+
+
+def _extract_bits_lsb(data, bits: int):
+    msg_byte = 0
+    shift = 0
     message = []
+    mask = (1 << bits) - 1
+    for byte in data:
+        msg_byte |= (byte & mask) << shift
+        shift += bits
+        if shift >= 8:
+            tmp = msg_byte >> 8
+            message.append(msg_byte & 0xFF)
+            msg_byte = tmp
+            shift -= 8
+    return np.array(message, dtype=np.uint8)
 
-    for row in data:
-        for pixel in row:
-            for color in pixel:
-                mask = ((1 << bits) - 1) << (8 - bits - used_bits)
-                val = (color << (8 - bits - used_bits))
-                byte = byte | (val & mask)
-                used_bits += bits
-                if used_bits == 8:
-                    message.append(byte)
-                    byte = 0
-                    used_bits = 0
-    return bytes(message)
+
+def _extract_bits_msb(data, bits: int):
+    msg_byte = 0
+    shift = 8 - bits
+    message = []
+    mask = (1 << bits) - 1
+    for byte in data:
+        msg_byte |= (byte & mask) << shift
+        shift += bits
+        if shift <= 0:
+            tmp = msg_byte >> 8
+            message.append(msg_byte & 0xFF)
+            msg_byte = tmp
+            shift += 8
+    return np.array(message, dtype=np.uint8)
+
+
+_COL_MAP = {'R': 0, 'G': 1, 'B': 2, 'A': 3}
+
+
+def _load_image(img_path: Path, convert_mode='RGB', channels=None):
+    if 'A' in channels:
+        convert_mode = 'RGBA'
+
+    with Image.open(img_path) as img:
+        arr = np.array(img.convert(convert_mode))
+
+    channels = [*channels] if channels else None
+    if (convert_mode == 'RGB' and 0 < len(channels) < 3) or (convert_mode == 'RGBA' and 0 < len(channels) < 4):
+        arr = arr[..., [_COL_MAP[c] for c in channels]]
+    return arr.reshape(-1)
+
+
+def _extract_message(img_path: Path, bits: int, direction='msb', convert_mode='RGB', channels=None):
+    data = _load_image(img_path, convert_mode, channels)
+    if bits == 1 or bits.bit_count() == 1:
+        if direction == 'msb':
+            return _extract_bits_opt_msb(data, bits)
+        else:
+            return _extract_bits_opt_lsb(data, bits)
+    else:
+        if direction == 'msb':
+            return _extract_bits_msb(data, bits)
+        else:
+            return _extract_bits_lsb(data, bits)
 
 
 def lsb_extract(input_image, bits=1):
     """Extract a message from an image using the LSBs method and print it."""
-    message = _extract_lsbs(input_image, bits)
-    print(message.decode('utf-8'))
+    message = _extract_message(input_image, bits)
+    print(message.tobytes().decode('utf-8'))

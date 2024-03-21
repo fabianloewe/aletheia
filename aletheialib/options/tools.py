@@ -270,7 +270,7 @@ def print_metadata():
 # }}}
 
 def lsb_extract():
-    if len(sys.argv)!=3:
+    if len(sys.argv)<3:
         print(sys.argv[0], "lsb-extract <input-image> [num-lsbs]\n")
         print("")
         sys.exit(0)
