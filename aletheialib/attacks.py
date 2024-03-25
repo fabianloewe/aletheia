@@ -17,7 +17,7 @@ import numpy as np
 import scipy.stats
 from scipy import ndimage
 from cmath import sqrt
-from imageio import imread, imsave
+from imageio.v3 import imread, imiter as imsave
 
 from PIL import Image
 from PIL.ExifTags import TAGS
@@ -449,8 +449,8 @@ def print_diffs(cover, stego):
         for i in range(0, len(l), ln):
             print(l[i:i + ln])
 
-    C = imread(cover).astype('int16')
-    S = imread(stego).astype('int16')
+    C = imread(cover, pilmode='RGB').astype('int16')
+    S = imread(stego, pilmode='RGB').astype('int16')
     np.set_printoptions(threshold=sys.maxsize)
 
     if len(C.shape) != len(S.shape):
