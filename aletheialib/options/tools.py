@@ -1,155 +1,152 @@
 import os
 import sys
 
-doc = "\n" \
-"  Tools:\n" \
-"  - hpf:                   High-pass filter.\n" \
-"  - print-diffs:           Differences between two images.\n" \
-"  - print-dct-diffs:       Differences between the DCT coefficients of two JPEG images.\n" \
-"  - print-pixels:          Print a range of píxels.\n" \
-"  - print-coeffs:          Print a range of JPEG coefficients.\n" \
-"  - rm-alpha:              Opacity of the alpha channel to 255.\n" \
-"  - plot-histogram:        Plot histogram.\n" \
-"  - plot-histogram-diff:   Plot histogram of differences.\n" \
-"  - plot-dct-histogram:    Plot DCT histogram.\n" \
-"  - eof-extract:           Extract the data after EOF.\n" \
-"  - print-metadata:        Print Exif metadata.\n" \
-"  - lsb-extract:           Extract data from the LSBs.\n"
+import click
 
 
-# {{{ hpf
-def hpf():
+@click.group()
+def tools():
+    """Tools."""
+    pass
 
-    if len(sys.argv)!=4:
-        print(sys.argv[0], "hpf <input-image> <output-image>\n")
-        print("")
-        sys.exit(0)
+
+@tools.command()
+@click.argument('input')
+@click.argument('output')
+def hpf(input, output):
+    """High-pass filter.
+
+    INPUT is the image to filter.\n
+    OUTPUT is the output image.
+    """
 
     import aletheialib.attacks
-    aletheialib.attacks.high_pass_filter(sys.argv[2], sys.argv[3])
+    aletheialib.attacks.high_pass_filter(input, output)
     sys.exit(0)
-# }}}
 
-# {{{ print_diffs
-def print_diffs():
 
-    if len(sys.argv)!=4:
-        print(sys.argv[0], "print-diffs <cover image> <stego image>\n")
-        print("")
-        sys.exit(0)
+@tools.command()
+@click.argument('cover')
+@click.argument('stego')
+def print_diffs(cover, stego):
+    """Differences between two images.
+
+    COVER is the cover image.\n
+    STEGO is the stego image.
+    """
 
     import aletheialib.utils
     import aletheialib.attacks
 
-    cover = aletheialib.utils.absolute_path(sys.argv[2])
-    stego = aletheialib.utils.absolute_path(sys.argv[3])
+    cover = aletheialib.utils.absolute_path(cover)
+    stego = aletheialib.utils.absolute_path(stego)
     if not os.path.isfile(cover):
-        print("Cover file not found:", cover)
+        click.echo("Cover file not found:", cover)
         sys.exit(0)
     if not os.path.isfile(stego):
-        print("Stego file not found:", stego)
+        click.echo("Stego file not found:", stego)
         sys.exit(0)
 
     aletheialib.attacks.print_diffs(cover, stego)
     sys.exit(0)
-# }}}
 
-# {{{ print_dct_diffs
-def print_dct_diffs():
 
-    if len(sys.argv)!=4:
-        print(sys.argv[0], "print-dtc-diffs <cover image> <stego image>\n")
-        print("")
-        sys.exit(0)
+@tools.command()
+@click.argument('cover')
+@click.argument('stego')
+def print_dct_diffs(cover, stego):
+    """Differences between the DCT coefficients of two JPEG images.
+
+    COVER is the cover image.\n
+    STEGO is the stego image.
+    """
 
     import aletheialib.attacks
     import aletheialib.utils
 
-    cover = aletheialib.utils.absolute_path(sys.argv[2])
-    stego = aletheialib.utils.absolute_path(sys.argv[3])
+    cover = aletheialib.utils.absolute_path(cover)
+    stego = aletheialib.utils.absolute_path(stego)
 
     if not os.path.isfile(cover):
-        print("Cover file not found:", cover)
+        click.echo("Cover file not found:", cover)
         sys.exit(0)
     if not os.path.isfile(stego):
-        print("Stego file not found:", stego)
+        click.echo("Stego file not found:", stego)
         sys.exit(0)
-
 
     name, ext = os.path.splitext(cover)
     if ext.lower() not in [".jpeg", ".jpg"] or not os.path.isfile(cover):
-        print("Please, provide a JPEG image!\n")
+        click.echo("Please, provide a JPEG image!\n")
         sys.exit(0)
 
     name, ext = os.path.splitext(stego)
     if ext.lower() not in [".jpeg", ".jpg"] or not os.path.isfile(stego):
-        print("Please, provide a JPEG image!\n")
+        click.echo("Please, provide a JPEG image!\n")
         sys.exit(0)
-
-
 
     aletheialib.attacks.print_dct_diffs(cover, stego)
     sys.exit(0)
-# }}}
 
-# {{{ rm_alpha
-def rm_alpha():
 
-    if len(sys.argv)!=4:
-        print(sys.argv[0], "rm-alpha <input-image> <output-image>\n")
-        print("")
-        sys.exit(0)
+@tools.command()
+@click.argument('input')
+@click.argument('output')
+def rm_alpha(input, output):
+    """Opacity of the alpha channel to 255.
+
+    INPUT is the input image.\n
+    OUTPUT is the output image.
+    """
 
     import aletheialib.utils
     import aletheialib.attacks
 
-    aletheialib.attacks.remove_alpha_channel(sys.argv[2], sys.argv[3])
+    aletheialib.attacks.remove_alpha_channel(input, output)
     sys.exit(0)
-# }}}
 
-# {{{ plot_histogram
-def plot_histogram():
 
-    if len(sys.argv)<3:
-        print(sys.argv[0], "plot-histogram <image>\n")
-        print("")
-        sys.exit(0)
+@tools.command()
+@click.argument('image')
+def plot_histogram(image):
+    """Plot histogram.
+
+    IMAGE is the image to plot.
+    """
 
     import imageio
     import aletheialib.utils
     from matplotlib import pyplot as plt
 
-    fn = aletheialib.utils.absolute_path(sys.argv[2])
+    fn = aletheialib.utils.absolute_path(image)
     I = imageio.imread(fn)
     data = []
     if len(I.shape) == 1:
         data.append(I.flatten())
     else:
         for i in range(I.shape[2]):
-            data.append(I[:,:,i].flatten())
+            data.append(I[:, :, i].flatten())
 
     plt.hist(data, range(0, 255), color=["r", "g", "b"])
     plt.show()
     sys.exit(0)
 
-# }}}
 
-# {{{ plot_dct_histogram
+@tools.command()
+@click.argument('image')
 def plot_dct_histogram():
+    """Plot DCT histogram.
 
-    if len(sys.argv)<3:
-        print(sys.argv[0], "plot-dct-histogram <image>\n")
-        print("")
-        sys.exit(0)
+    IMAGE is the JPEG image to plot.
+    """
 
     import aletheialib.utils
     import aletheialib.jpeg
     from matplotlib import pyplot as plt
 
-    fn = aletheialib.utils.absolute_path(sys.argv[2])
+    fn = aletheialib.utils.absolute_path(image)
     name, ext = os.path.splitext(fn)
     if ext.lower() not in [".jpeg", ".jpg"] or not os.path.isfile(fn):
-        print("Please, provide a JPEG image!\n")
+        click.echo("Please, provide a JPEG image!\n")
         sys.exit(0)
     I = aletheialib.jpeg.JPEG(fn)
     channels = ["r", "g", "b"]
@@ -157,68 +154,65 @@ def plot_dct_histogram():
     for i in range(I.components()):
         dct = I.coeffs(i).flatten()
         dct_list.append(dct)
-        #counts, bins = np.histogram(dct, range(-5, 5))
-        #plt.plot(bins[:-1], counts, channels[i])
+        # counts, bins = np.histogram(dct, range(-5, 5))
+        # plt.plot(bins[:-1], counts, channels[i])
     plt.hist(dct_list, range(-10, 10), rwidth=1, color=["r", "g", "b"])
 
     plt.show()
     sys.exit(0)
-# }}}
 
-# {{{ print_pixels()
-def print_pixels():
 
-    if len(sys.argv)!=5:
-        print(sys.argv[0], "print-pixels <image> <width start>:<width end> <height start>:<height end>\n")
-        print("Example:")
-        print(sys.argv[0], "print-pixels test.png 400:410 200:220\n")
-        print("")
-        sys.exit(0)
+@tools.command()
+@click.argument('image')
+@click.option('-w', '--width-range', help="Width range to plot", type=(int, int), required=True)
+@click.option('-h', '--height-range', help="Height range to plot", type=(int, int), required=True)
+def print_pixels(image, width_range, height_range):
+    """Print a range of pixels.
+
+    IMAGE is the image to plot.
+
+    Example:
+    \b
+    python aletheia.py click.echo-pixels test.png -w 400 410 -h 200 220
+    """
 
     import imageio
-    I = imageio.imread(sys.argv[2])
+    I = imageio.imread(image)
 
-    w = sys.argv[3].split(":")
-    h = sys.argv[4].split(":")
-    ws = int(w[0])
-    we = int(w[1])
-    hs = int(h[0])
-    he = int(h[1])
-
+    ws, we = width_range
+    hs, he = height_range
 
     if len(I.shape) == 2:
-        print("Image shape:", I.shape[:2])
-        print(I[hs:he, ws:we])
+        click.echo("Image shape:", I.shape[:2])
+        click.echo(I[hs:he, ws:we])
     else:
-        print("Image shape:", I.shape[:2])
+        click.echo("Image shape:", I.shape[:2])
         for ch in range(I.shape[2]):
-            print("Channel:", ch)
-            print(I[hs:he, ws:we, ch])
-            print()
+            click.echo("Channel:", ch)
+            click.echo(I[hs:he, ws:we, ch])
+            click.echo()
 
-# }}}
 
-# {{{ print_coeffs()
-def print_coeffs():
+@tools.command()
+@click.argument('image')
+@click.option('-w', '--width-range', help="Width range to plot", type=(int, int), required=True)
+@click.option('-h', '--height-range', help="Height range to plot", type=(int, int), required=True)
+def print_coeffs(image, width_range, height_range):
+    """Print a range of JPEG coefficients.
 
-    if len(sys.argv)!=5:
-        print(sys.argv[0], "print-coeffs <image> <width start>:<width end> <height start>:<height end>\n")
-        print("Example:")
-        print(sys.argv[0], "print-coeffs test.jpg 400:410 200:220\n")
-        print("")
-        sys.exit(0)
+    IMAGE is the JPEG image to plot.
 
-    w = sys.argv[3].split(":")
-    h = sys.argv[4].split(":")
-    ws = int(w[0])
-    we = int(w[1])
-    hs = int(h[0])
-    he = int(h[1])
+    Example:
+    \b
+    python aletheia.py click.echo-coeffs test.jpg -w 400 410 -h 200 220
+    """
 
+    ws, we = width_range
+    hs, he = height_range
 
     fn, ext = os.path.splitext(sys.argv[2])
     if ext[1:].lower() not in ["jpg", "jpeg"]:
-        print("ERROR: Please, provide a JPEG image")
+        click.echo("ERROR: Please, provide a JPEG image")
         sys.exit(0)
 
     import aletheialib.utils
@@ -229,59 +223,60 @@ def print_coeffs():
 
     for i in range(im_jpeg.components()):
         coeffs = im_jpeg.coeffs(i)
-        print("Image shape:", coeffs.shape)
-        print("Channel:", i)
-        print(coeffs[hs:he, ws:we])
-        print()
+        click.echo("Image shape:", coeffs.shape)
+        click.echo("Channel:", i)
+        click.echo(coeffs[hs:he, ws:we])
+        click.echo()
 
 
-# }}}
+@tools.command()
+@click.argument('image')
+@click.argument('output')
+def eof_extract(image, output):
+    """Extract the data after EOF.
 
-# {{{ eof_extract
-def eof_extract():
+    IMAGE is the image to extract.
+    OUTPUT is the output file.
+    """
 
-    if len(sys.argv)!=4:
-        print(sys.argv[0], "eof-extract <input-image> <output-data>\n")
-        print("")
-        sys.exit(0)
-
-    if not os.path.isfile(sys.argv[2]):
-        print("Please, provide a valid image!\n")
+    if not os.path.isfile(image):
+        click.echo("Please, provide a valid image!\n")
 
     import aletheialib.attacks
-    aletheialib.attacks.eof_extract(sys.argv[2], sys.argv[3])
+    aletheialib.attacks.eof_extract(image, output)
     sys.exit(0)
-# }}}
 
-# {{{ print_metadata
-def print_metadata():
 
-    if len(sys.argv)!=3:
-        print(sys.argv[0], "print-metadata <input-image>\n")
-        print("")
-        sys.exit(0)
+@tools.command()
+@click.argument('input')
+def print_metadata(input):
+    """Print Exif metadata.
 
-    if not os.path.isfile(sys.argv[2]):
-        print("Please, provide a valid image!\n")
+    INPUT is the image to analyze.
+    """
+
+    if not os.path.isfile(input):
+        click.echo("Please, provide a valid image!\n")
 
     import aletheialib.attacks
-    aletheialib.attacks.exif(sys.argv[2])
+    aletheialib.attacks.exif(input)
     sys.exit(0)
-# }}}
 
-def lsb_extract():
 
-    if 3 >= len(sys.argv) >= 6:
-        print(sys.argv[0], "lsb-extract <input-image> [num-lsbs] [channels=R|G|B|A] [direction=msb|lsb]\n")
-        print("")
-        sys.exit(0)
+@tools.command()
+@click.argument('input')
+@click.option('--num-lsbs', default=1, help="Number of LSBs to extract")
+@click.option('--channels', default="RGB", help="Channels to extract")
+@click.option('--endian', default="little", help="The endianness to use for recovering the data")
+def lsb_extract(input, num_lsbs, channels, endian):
+    """Extract data from the LSBs.
 
-    if not os.path.isfile(sys.argv[2]):
-        print("Please, provide a valid image!\n")
+    INPUT is the image to analyze.
+    """
+
+    if not os.path.isfile(input):
+        click.echo("Please, provide a valid image!\n")
 
     import aletheialib.attacks
-    num_lsbs = int(sys.argv[3]) if len(sys.argv) >= 4 else 1
-    channels = sys.argv[4].upper() if len(sys.argv) >= 5 else "RGB"
-    direction = sys.argv[5].lower() if len(sys.argv) >= 6 else "lsb"
-    aletheialib.attacks.lsb_extract(sys.argv[2], num_lsbs, channels, direction)
+    aletheialib.attacks.lsb_extract(input, num_lsbs, channels, endian)
     sys.exit(0)
