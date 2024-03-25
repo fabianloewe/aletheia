@@ -3,6 +3,8 @@
 import os
 import sys
 import shutil
+from pathlib import Path
+
 import magic
 import ntpath
 import tempfile
@@ -23,11 +25,10 @@ from PIL.ExifTags import TAGS
 from aletheialib.jpeg import JPEG
 
 import multiprocessing
-#from multiprocessing.dummy import Pool as ThreadPool
-from multiprocessing import Pool as ThreadPool 
+# from multiprocessing.dummy import Pool as ThreadPool
+from multiprocessing import Pool as ThreadPool
 from multiprocessing import cpu_count
 from multiprocessing import Pool
-
 
 
 # -- EXIF --
@@ -55,19 +56,22 @@ def exif(filename):
     Sample Pair Analysis attack. 
     Return Beta, the detected embedding rate.
 """
-def spa(filename, channel=0): 
+
+
+def spa(filename, channel=0):
     return spa_image(imread(filename), channel)
 
+
 def spa_image(image, channel=0):
-    if channel!=None:
+    if channel != None:
         width, height, channels = image.shape
-        I = image[:,:,channel]
+        I = image[:, :, channel]
     else:
         I = image
         width, height = I.shape
 
-    r = I[:-1,:]
-    s = I[1:,:]
+    r = I[:-1, :]
+    s = I[1:, :]
 
     # we only care about the lsb of the next pixel
     lsb_is_zero = np.equal(np.bitwise_and(s, 1), 0)
@@ -83,21 +87,23 @@ def spa_image(image, channel=0):
     y = np.sum(np.logical_or(np.logical_and(lsb_is_zero, r_greater_than_s),
                              np.logical_and(lsb_non_zero, r_less_than_s)).astype(int))
 
-    k = np.sum(np.equal(msb[:-1,:], msb[1:,:]).astype(int))
+    k = np.sum(np.equal(msb[:-1, :], msb[1:, :]).astype(int))
 
-    if k==0:
+    if k == 0:
         print("ERROR")
         sys.exit(0)
 
-    a=2*k
-    b=2*(2*x-width*(height-1))
-    c=y-x
+    a = 2 * k
+    b = 2 * (2 * x - width * (height - 1))
+    c = y - x
 
-    bp=(-b+sqrt(b**2-4*a*c))/(2*a)
-    bm=(-b-sqrt(b**2-4*a*c))/(2*a)
+    bp = (-b + sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+    bm = (-b - sqrt(b ** 2 - 4 * a * c)) / (2 * a)
 
-    beta=min(bp.real, bm.real)
+    beta = min(bp.real, bm.real)
     return beta
+
+
 # }}}
 
 
@@ -105,24 +111,30 @@ def spa_image(image, channel=0):
 
 # {{{ solve()
 def solve(a, b, c):
-    sq = np.sqrt(b**2 - 4*a*c)
-    return ( -b + sq ) / ( 2*a ), ( -b - sq ) / ( 2*a )
+    sq = np.sqrt(b ** 2 - 4 * a * c)
+    return (-b + sq) / (2 * a), (-b - sq) / (2 * a)
+
+
 # }}}
 
 # {{{ smoothness()
 def smoothness(I):
-    return ( np.sum(np.abs( I[:-1,:] - I[1:,:] )) +
-             np.sum(np.abs( I[:,:-1] - I[:,1:] )) )
+    return (np.sum(np.abs(I[:-1, :] - I[1:, :])) +
+            np.sum(np.abs(I[:, :-1] - I[:, 1:])))
+
+
 # }}}
 
 # {{{ groups()
 def groups(I, mask):
-    grp=[]
+    grp = []
     m, n = I.shape
     x, y = np.abs(mask).shape
-    for i in range(m-x):
-        for j in range(n-y):
-            yield I[i:(i+x), j:(j+y)]
+    for i in range(m - x):
+        for j in range(n - y):
+            yield I[i:(i + x), j:(j + y)]
+
+
 # }}}
 
 class RSAnalysis(object):
@@ -134,7 +146,7 @@ class RSAnalysis(object):
 
     def call(self, group):
         flip = (group + self.cmask) ^ self.abs_mask - self.cmask
-        return  np.sign(smoothness(flip) - smoothness(group))
+        return np.sign(smoothness(flip) - smoothness(group))
 
 
 # {{{ difference()
@@ -149,45 +161,51 @@ def difference(I, mask):
         counts[v] += 1
 
     N = sum(counts)
-    R = float(counts[1])/N
-    S = float(counts[-1])/N
-    return R-S
+    R = float(counts[1]) / N
+    S = float(counts[-1]) / N
+    return R - S
+
+
 # }}}
 
 # {{{ rs()
 def rs(filename, channel=0):
     return rs_image(np.asarray(imread(filename), channel))
 
+
 def rs_image(image, channel=0):
-    if channel!=None:
-        I = image[:,:,channel]
+    if channel != None:
+        I = image[:, :, channel]
     else:
         I = image
     I = I.astype(int)
 
-    mask = np.array( [[0, 0, 0], [0, 1, 0], [0, 0, 0]] )
+    mask = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 0]])
     d0 = difference(I, mask)
-    d1 = difference(I^1, mask)
+    d1 = difference(I ^ 1, mask)
 
     mask = -mask
     n_d0 = difference(I, mask)
-    n_d1 = difference(I^1, mask)
+    n_d1 = difference(I ^ 1, mask)
 
-    p0, p1 = solve(2*(d1+d0), (n_d0-n_d1-d1-3*d0), (d0-n_d0))
+    p0, p1 = solve(2 * (d1 + d0), (n_d0 - n_d1 - d1 - 3 * d0), (d0 - n_d0))
     if np.abs(p0) < np.abs(p1):
         z = p0
     else:
         z = p1
 
-    return z / (z-0.5)
+    return z / (z - 0.5)
+
+
 # }}}
 
 # -- CALIBRATION --
 
 # {{{ calibration()
 def H_i(dct, k, l, i):
-    dct_kl = dct[k::8,l::8].flatten()
+    dct_kl = dct[k::8, l::8].flatten()
     return sum(np.abs(dct_kl) == i)
+
 
 def H_i_all(dct, i):
     dct_kl = dct.flatten()
@@ -200,7 +218,7 @@ def beta_kl(dct_0, dct_b, k, l):
     h02 = H_i(dct_0, k, l, 2)
     hb0 = H_i(dct_b, k, l, 0)
     hb1 = H_i(dct_b, k, l, 1)
-    return (h01*(hb0-h00) + (hb1-h01)*(h02-h01)) / (h01**2 + (h02-h01)**2)
+    return (h01 * (hb0 - h00) + (hb1 - h01) * (h02 - h01)) / (h01 ** 2 + (h02 - h01) ** 2)
 
 
 def calibration_f5(path):
@@ -209,7 +227,7 @@ def calibration_f5(path):
 
     tmpdir = tempfile.mkdtemp()
     predfile = os.path.join(tmpdir, 'img.jpg')
-    os.system("convert -chop 4x4 "+path+" "+predfile)
+    os.system("convert -chop 4x4 " + path + " " + predfile)
     im_jpeg = jt.load(path)
     impred_jpeg = jt.load(predfile)
     shutil.rmtree(tmpdir)
@@ -218,15 +236,14 @@ def calibration_f5(path):
     for i in range(im_jpeg["jpeg_components"]):
         dct_b = im_jpeg["coef_arrays"][i]
         dct_0 = impred_jpeg["coef_arrays"][i]
-        b01 = beta_kl(dct_0, dct_b, 0, 1)   
-        b10 = beta_kl(dct_0, dct_b, 1, 0)   
+        b01 = beta_kl(dct_0, dct_b, 0, 1)
+        b10 = beta_kl(dct_0, dct_b, 1, 0)
         b11 = beta_kl(dct_0, dct_b, 1, 1)
-        beta = (b01+b10+b11)/3
+        beta = (b01 + b10 + b11) / 3
         if beta > 0.05:
-            print("Hidden data found in channel "+str(i)+":", beta)
+            print("Hidden data found in channel " + str(i) + ":", beta)
         else:
-            print("No hidden data found in channel "+str(i))
-
+            print("No hidden data found in channel " + str(i))
 
 
 def calibration_chisquare_mode(path):
@@ -235,7 +252,7 @@ def calibration_chisquare_mode(path):
 
     tmpdir = tempfile.mkdtemp()
     predfile = os.path.join(tmpdir, 'img.jpg')
-    os.system("convert -chop 4x4 "+path+" "+predfile)
+    os.system("convert -chop 4x4 " + path + " " + predfile)
     im_jpeg = jt.load(path)
     impred_jpeg = jt.load(predfile)
     shutil.rmtree(tmpdir)
@@ -244,7 +261,7 @@ def calibration_chisquare_mode(path):
     for i in range(im_jpeg["jpeg_components"]):
         dct = im_jpeg["coef_arrays"][i]
         dct_estim = impred_jpeg["coef_arrays"][i]
-        
+
         p_list = []
         for k in range(4):
             for l in range(4):
@@ -253,31 +270,29 @@ def calibration_chisquare_mode(path):
 
                 f_exp, f_obs = [], []
                 for j in range(5):
-                    h  = H_i(dct, k, l, j)
+                    h = H_i(dct, k, l, j)
                     h_estim = H_i(dct_estim, k, l, j)
-                    if h<5 or h_estim<5:
+                    if h < 5 or h_estim < 5:
                         break
                     f_exp.append(h_estim)
                     f_obs.append(h)
-                #print(f_exp, f_obs)
+                # print(f_exp, f_obs)
 
                 chi, p = scipy.stats.chisquare(f_obs, f_exp)
                 p_list.append(p)
 
         p = np.mean(p_list)
         if p < 0.05:
-            print("Hidden data found in channel "+str(i)+". p-value:", np.round(p, 6))
+            print("Hidden data found in channel " + str(i) + ". p-value:", np.round(p, 6))
         else:
-            print("No hidden data found in channel "+str(i))
-
-
+            print("No hidden data found in channel " + str(i))
 
 
 def calibration_f5_octave_jpeg(filename, return_result=False):
     """ It uses JPEG from octave """
     tmpdir = tempfile.mkdtemp()
     predfile = os.path.join(tmpdir, 'img.jpg')
-    os.system("convert -chop 4x4 "+filename+" "+predfile)
+    os.system("convert -chop 4x4 " + filename + " " + predfile)
 
     im_jpeg = JPEG(filename)
     impred_jpeg = JPEG(predfile)
@@ -285,22 +300,23 @@ def calibration_f5_octave_jpeg(filename, return_result=False):
     for i in range(im_jpeg.components()):
         dct_b = im_jpeg.coeffs(i)
         dct_0 = impred_jpeg.coeffs(i)
-        b01 = beta_kl(dct_0, dct_b, 0, 1)   
-        b10 = beta_kl(dct_0, dct_b, 1, 0)   
+        b01 = beta_kl(dct_0, dct_b, 0, 1)
+        b10 = beta_kl(dct_0, dct_b, 1, 0)
         b11 = beta_kl(dct_0, dct_b, 1, 1)
-        beta = (b01+b10+b11)/3
+        beta = (b01 + b10 + b11) / 3
         if beta > 0.05:
             beta_avg += beta
             if not return_result:
-                print("Hidden data found in channel "+str(i)+":", beta)
+                print("Hidden data found in channel " + str(i) + ":", beta)
         else:
             if not return_result:
-                print("No hidden data found in channel "+str(i))
+                print("No hidden data found in channel " + str(i))
     beta_avg /= im_jpeg.components()
     if return_result:
         return beta_avg
 
     shutil.rmtree(tmpdir)
+
 
 # }}}
 
@@ -308,34 +324,33 @@ def calibration_f5_octave_jpeg(filename, return_result=False):
 # -- NAIVE ATTACKS
 
 # {{{ high_pass_filter()
-def high_pass_filter(input_image, output_image): 
-
+def high_pass_filter(input_image, output_image):
     I = imread(input_image)
-    if len(I.shape)==3:
+    if len(I.shape) == 3:
         kernel = np.array([[[-1, -1, -1],
-                            [-1,  8, -1],
+                            [-1, 8, -1],
                             [-1, -1, -1]],
                            [[-1, -1, -1],
-                            [-1,  8, -1],
+                            [-1, 8, -1],
                             [-1, -1, -1]],
                            [[-1, -1, -1],
-                            [-1,  8, -1],
+                            [-1, 8, -1],
                             [-1, -1, -1]]])
     else:
         kernel = np.array([[-1, -1, -1],
-                           [-1,  8, -1],
+                           [-1, 8, -1],
                            [-1, -1, -1]])
-
 
     If = ndimage.convolve(I, kernel)
     imsave(output_image, If)
+
+
 # }}}
 
 # {{{ low_pass_filter()
-def low_pass_filter(input_image, output_image): 
-
+def low_pass_filter(input_image, output_image):
     I = imread(input_image)
-    if len(I.shape)==3:
+    if len(I.shape) == 3:
         kernel = np.array([[[1, 1, 1],
                             [1, 1, 1],
                             [1, 1, 1]],
@@ -350,14 +365,15 @@ def low_pass_filter(input_image, output_image):
                            [1, 1, 1],
                            [1, 1, 1]])
 
-    kernel = kernel.astype('float32')/9
+    kernel = kernel.astype('float32') / 9
     If = ndimage.convolve(I, kernel)
     imsave(output_image, If)
+
+
 # }}}
 
 # {{{ imgdiff()
-def imgdiff(image1, image2): 
-
+def imgdiff(image1, image2):
     I1 = imread(image1).astype('int16')
     I2 = imread(image2).astype('int16')
     np.set_printoptions(threshold=sys.maxsize)
@@ -369,11 +385,11 @@ def imgdiff(image1, image2):
     if len(I1.shape) == 2:
         D = I1 - I2
         print(D)
-    
+
     elif len(I1.shape) == 3:
-        D1 = I1[:,:,0] - I2[:,:,0]
-        D2 = I1[:,:,1] - I2[:,:,1]
-        D3 = I1[:,:,2] - I2[:,:,2]
+        D1 = I1[:, :, 0] - I2[:, :, 0]
+        D2 = I1[:, :, 1] - I2[:, :, 1]
+        D3 = I1[:, :, 2] - I2[:, :, 2]
         print("Channel 1:")
         print(D1)
         print("Channel 2:")
@@ -384,12 +400,10 @@ def imgdiff(image1, image2):
         print("Error, too many dimensions:", I1.shape)
 
 
-
 # }}}
 
 # {{{ imgdiff_pixels()
-def imgdiff_pixels(image1, image2): 
-
+def imgdiff_pixels(image1, image2):
     I1 = imread(image1).astype('int16')
     I2 = imread(image2).astype('int16')
     np.set_printoptions(threshold=sys.maxsize)
@@ -405,38 +419,35 @@ def imgdiff_pixels(image1, image2):
 
 
     elif len(I1.shape) == 3:
-        D1 = I1[:,:,0] - I2[:,:,0]
-        D2 = I1[:,:,1] - I2[:,:,1]
-        D3 = I1[:,:,2] - I2[:,:,2]
+        D1 = I1[:, :, 0] - I2[:, :, 0]
+        D2 = I1[:, :, 1] - I2[:, :, 1]
+        D3 = I1[:, :, 2] - I2[:, :, 2]
         print("Channel 1:")
-        pairs = list(zip(I1[:,:,0].ravel(), D1.ravel()))
-        pairs_diff = [p for p in pairs if p[1]!=0]
-        #print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,0].shape))
+        pairs = list(zip(I1[:, :, 0].ravel(), D1.ravel()))
+        pairs_diff = [p for p in pairs if p[1] != 0]
+        # print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,0].shape))
         print(pairs_diff)
         print("Channel 2:")
-        pairs = list(zip(I1[:,:,1].ravel(), D2.ravel()))
-        pairs_diff = [p for p in pairs if p[1]!=0]
-        #print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,1].shape))
+        pairs = list(zip(I1[:, :, 1].ravel(), D2.ravel()))
+        pairs_diff = [p for p in pairs if p[1] != 0]
+        # print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,1].shape))
         print(pairs_diff)
         print("Channel 3:")
-        pairs = list(zip(I1[:,:,2].ravel(), D3.ravel()))
-        pairs_diff = [p for p in pairs if p[1]!=0]
-        #print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,2].shape))
+        pairs = list(zip(I1[:, :, 2].ravel(), D3.ravel()))
+        pairs_diff = [p for p in pairs if p[1] != 0]
+        # print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,2].shape))
         print(pairs_diff)
     else:
         print("Error, too many dimensions:", I1.shape)
 
 
-
 # }}}
 
 # {{{ print_diffs()
-def print_diffs(cover, stego): 
-
+def print_diffs(cover, stego):
     def print_list(l, ln):
         for i in range(0, len(l), ln):
-            print(l[i:i+ln])
-
+            print(l[i:i + ln])
 
     C = imread(cover, pilmode='RGB').astype('int16')
     S = imread(stego, pilmode='RGB').astype('int16')
@@ -449,94 +460,92 @@ def print_diffs(cover, stego):
     if len(C.shape) == 2:
         D = S - C
         pairs = list(zip(C.ravel(), S.ravel(), D.ravel()))
-        pairs_diff = [p for p in pairs if p[2]!=0]
+        pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
 
 
     elif len(C.shape) == 3:
-        D1 = S[:,:,0] - C[:,:,0]
-        D2 = S[:,:,1] - C[:,:,1]
-        D3 = S[:,:,2] - C[:,:,2]
+        D1 = S[:, :, 0] - C[:, :, 0]
+        D2 = S[:, :, 1] - C[:, :, 1]
+        D3 = S[:, :, 2] - C[:, :, 2]
         print("\nChannel 1:")
-        pairs = list(zip(C[:,:,0].ravel(), S[:,:,0].ravel(), D1.ravel()))
-        pairs_diff = [p for p in pairs if p[2]!=0]
+        pairs = list(zip(C[:, :, 0].ravel(), S[:, :, 0].ravel(), D1.ravel()))
+        pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
         print("\nChannel 2:")
-        pairs = list(zip(C[:,:,1].ravel(), S[:,:,1].ravel(), D2.ravel()))
-        pairs_diff = [p for p in pairs if p[2]!=0]
+        pairs = list(zip(C[:, :, 1].ravel(), S[:, :, 1].ravel(), D2.ravel()))
+        pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
         print("\nChannel 3:")
-        pairs = list(zip(C[:,:,2].ravel(), S[:,:,2].ravel(), D3.ravel()))
-        pairs_diff = [p for p in pairs if p[2]!=0]
+        pairs = list(zip(C[:, :, 2].ravel(), S[:, :, 2].ravel(), D3.ravel()))
+        pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
     else:
         print("Error, too many dimensions:", C.shape)
 
 
-
 # }}}
 
 # {{{ print_dct_diffs()
-def print_dct_diffs(cover, stego): 
-    #import jpeg_toolbox as jt
+def print_dct_diffs(cover, stego):
+    # import jpeg_toolbox as jt
 
     def print_list(l, ln):
         mooc = 0
         for i in range(0, len(l), ln):
-            print(l[i:i+ln])
-            v = l[i:i+ln][0][2]
+            print(l[i:i + ln])
+            v = l[i:i + ln][0][2]
             if np.abs(v) > 1:
                 mooc += 1
 
     C_jpeg = JPEG(cover)
-    #C_jpeg = jt.load(cover)
+    # C_jpeg = jt.load(cover)
     S_jpeg = JPEG(stego)
-    #S_jpeg = jt.load(stego)
+    # S_jpeg = jt.load(stego)
     for i in range(C_jpeg.components()):
-    #for i in range(C_jpeg["jpeg_components"]):
+        # for i in range(C_jpeg["jpeg_components"]):
         C = C_jpeg.coeffs(i)
         S = S_jpeg.coeffs(i)
-        #C = C_jpeg["coef_arrays"][i]
-        #S = S_jpeg["coef_arrays"][i]
-        if C.shape!=S.shape:
+        # C = C_jpeg["coef_arrays"][i]
+        # S = S_jpeg["coef_arrays"][i]
+        if C.shape != S.shape:
             print("WARNING! channels with different size. Channel: ", i)
             continue
-        D = S-C
-        print("\nChannel "+str(i)+":")
+        D = S - C
+        print("\nChannel " + str(i) + ":")
         pairs = list(zip(C.ravel(), S.ravel(), D.ravel()))
-        pairs_diff = [p for p in pairs if p[2]!=0]
+        pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
-
 
     print("\nCommon DCT coefficients frequency variation:")
     for i in range(C_jpeg.components()):
-        print("\nChannel "+str(i)+":")
+        print("\nChannel " + str(i) + ":")
         nz_coeffs = np.count_nonzero(C_jpeg.coeffs(i))
-        changes = np.sum(np.abs(C_jpeg.coeffs(i)-S_jpeg.coeffs(i)))
-        rate = round(changes/nz_coeffs, 4)
+        changes = np.sum(np.abs(C_jpeg.coeffs(i) - S_jpeg.coeffs(i)))
+        rate = round(changes / nz_coeffs, 4)
         print(f"non zero coeffs: {nz_coeffs}, changes: {changes}, rate: {rate}")
         print("H BAR    COVER      STEGO       DIFF")
         print("------------------------------------")
         for v in [-4, -3, -2, -1, 0, 1, 2, 3, 4]:
-            cover = np.sum(C_jpeg.coeffs(i)==v)
-            stego = np.sum(S_jpeg.coeffs(i)==v)
-            var = stego-cover
+            cover = np.sum(C_jpeg.coeffs(i) == v)
+            stego = np.sum(S_jpeg.coeffs(i) == v)
+            var = stego - cover
             print(f"{v:+}: {cover:10d} {stego:10d} {var:10d}")
 
 
 # }}}
 
 # {{{ remove_alpha_channel()
-def remove_alpha_channel(input_image, output_image): 
-
+def remove_alpha_channel(input_image, output_image):
     I = imread(input_image)
-    I[:,:,3] = 255;
+    I[:, :, 3] = 255;
     imsave(output_image, I)
+
+
 # }}}
 
 # {{{ eof_extract()
-def eof_extract(input_image, output_data): 
-
+def eof_extract(input_image, output_data):
     name, ext = os.path.splitext(input_image)
 
     eof = None
@@ -555,19 +564,102 @@ def eof_extract(input_image, output_data):
     buff.write(raw)
     buff.seek(0)
     bytesarray = buff.read()
-    data = bytesarray.rsplit(eof, 1) # last occurrence
+    data = bytesarray.rsplit(eof, 1)  # last occurrence
 
     # data[0] contains the original image
-    if len(data[1])==0:
+    if len(data[1]) == 0:
         print("No data found")
         sys.exit(0)
     with open(output_data, 'wb') as outf:
         outf.write(data[1])
 
     ft = magic.Magic(mime=True).from_file(output_data)
-    print("\nData extracted from", input_image, "to", output_data, "("+ft+")\n")
+    print("\nData extracted from", input_image, "to", output_data, "(" + ft + ")\n")
+
 
 # }}}
 
+# {{{ lsb_extract()
 
+def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb'):
+    """Extract a message from an image using the LSBs method and print it."""
 
+    def _extract_bits_opt_lsb(data):
+        div = 8 // bits
+        message = np.zeros(len(data) // div, dtype=np.uint8)
+        mask = (1 << bits) - 1
+        for i in range(div):
+            shift = bits * i
+            message |= (data[i::div] & mask) << shift
+        return message
+
+    def _extract_bits_opt_msb(data):
+        div = 8 // bits
+        message = np.zeros(len(data) // div, dtype=np.uint8)
+        mask = (1 << bits) - 1
+        for i in range(div):
+            shift = 8 - bits - (bits * i)
+            message |= (data[i::div] & mask) << shift
+        return message
+
+    def _extract_bits_lsb(data):
+        msg_byte = 0
+        shift = 0
+        message = []
+        mask = (1 << bits) - 1
+        for byte in data:
+            msg_byte |= (byte & mask) << shift
+            shift += bits
+            if shift >= 8:
+                tmp = msg_byte >> 8
+                message.append(msg_byte & 0xFF)
+                msg_byte = tmp
+                shift -= 8
+        return np.array(message, dtype=np.uint8)
+
+    def _extract_bits_msb(data):
+        msg_byte = 0
+        shift = 8 - bits
+        message = []
+        mask = (1 << bits) - 1
+        for byte in data:
+            msg_byte |= (byte & mask) << shift
+            shift += bits
+            if shift <= 0:
+                tmp = msg_byte >> 8
+                message.append(msg_byte & 0xFF)
+                msg_byte = tmp
+                shift += 8
+        return np.array(message, dtype=np.uint8)
+
+    _COL_MAP = {'R': 0, 'G': 1, 'B': 2, 'A': 3}
+
+    def _load_image(img_path: Path, convert_mode='RGB', channels=None):
+        if 'A' in channels:
+            convert_mode = 'RGBA'
+
+        with Image.open(img_path) as img:
+            arr = np.array(img.convert(convert_mode))
+
+        channels = [*channels] if channels else None
+        if (convert_mode == 'RGB' and 0 < len(channels) < 3) or (convert_mode == 'RGBA' and 0 < len(channels) < 4):
+            arr = arr[..., [_COL_MAP[c] for c in channels]]
+        return arr.reshape(-1)
+
+    def _extract_message(img_path: Path, convert_mode='RGB'):
+        data = _load_image(img_path, convert_mode, channels)
+        if bits == 1 or bits.bit_count() == 1:
+            if direction == 'msb':
+                return _extract_bits_opt_msb(data)
+            else:
+                return _extract_bits_opt_lsb(data)
+        else:
+            if direction == 'msb':
+                return _extract_bits_msb(data)
+            else:
+                return _extract_bits_lsb(data)
+
+    message = _extract_message(input_image)
+    print(message.tobytes().decode('utf-8'))
+
+# }}}

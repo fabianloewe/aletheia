@@ -276,6 +276,9 @@ def main():
     elif sys.argv[1] == "print-metadata":
         options.tools.print_metadata()
 
+    elif sys.argv[1] == "lsb-extract":
+        options.tools.lsb_extract()
+
     else:
         print("Wrong command!")
 
