@@ -1,31 +1,16 @@
-#!/usr/bin/env python3 
+#!/usr/bin/env python3
+from pathlib import Path
 
-import os
-import sys
-import glob
-import json
-import time
-import scipy
-import numpy
-import pandas
-import pickle
-import shutil
-import random
-import imageio
-import tempfile
-import subprocess
-
-import numpy as np
-
-from scipy import misc
-from imageio import imread
+import click
+from click_repl import register_repl, repl
+from prompt_toolkit.history import FileHistory
 
 import aletheialib.options as options
-import click
 
 
 @click.group()
-def main():
+@click.option('--batch', is_flag=True, help="Run in batch mode.")
+def main(batch):
     pass
 
 
@@ -38,6 +23,27 @@ main.add_command(options.feaext.feaext)
 main.add_command(options.ml.ml)
 main.add_command(options.structural.structural)
 main.add_command(options.tools.tools)
+
+history_path = Path('.local/share/aletheia/history.txt')
+
+
+@main.command()
+def clear():
+    """Clears the command history and caches."""
+    if history_path.exists():
+        history_path.unlink()
+
+
+@main.command('repl')
+def main_repl():
+    """Runs this programm in REPL mode."""
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+
+    prompt_kwargs = {
+        'history': FileHistory(history_path),
+    }
+    repl(click.get_current_context(), prompt_kwargs=prompt_kwargs)
+
 
 if __name__ == "__main__":
     main()

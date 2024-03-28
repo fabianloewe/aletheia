@@ -163,7 +163,7 @@ def dci(sim, img_dir: Path, dev):
     os.environ["CUDA_VISIBLE_DEVICES"] = dev
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-    if not os.path.isdir(sys.argv[3]):
+    if not os.path.isdir(img_dir):
         click.echo("ERROR: Please, provide a valid directory\n")
         sys.exit(0)
 
@@ -194,7 +194,7 @@ def dci(sim, img_dir: Path, dev):
     A_files = files
 
     fn_sim = aletheialib.stegosim.embedding_fn(sim)
-    method = sys.argv[2]
+    method = sim
     method = method.replace("-sim", "")
 
     B_dir = tempfile.mkdtemp()
