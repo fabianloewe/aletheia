@@ -339,39 +339,34 @@ def print_metadata(ctx, input):
     import aletheialib.attacks
     import aletheialib.utils
 
-    def _print_exif(exif_data):
+    def _print_exif(exif_data, *, verbose=False):
         for tag, data in exif_data.items():
             click.echo(f"{tag:25}: {data}")
         else:
-            click.echo("No EXIF data found")
+            if verbose:
+                click.echo("No EXIF data found")
+
+    def _get_exif(input_files, *, verbose=False):
+        for f in input_files:
+            if not aletheialib.utils.is_valid_image(f):
+                if verbose:
+                    click.echo(f"{f} is not a valid image")
+                continue
+
+            yield f, aletheialib.attacks.exif(f)
 
     if ctx.obj['batch']:
         input_dir = Path(input)
         assert input_dir.is_dir(), "Input must be a directory in batch mode."
         input_files = list(input_dir.rglob("*.*"))
 
-        metadata = {}
-        with click.progressbar(input_files, label="Extracting metadata") as bar:
-            for f in bar:
-                if not aletheialib.utils.is_valid_image(f):
-                    metadata[f] = None
-                else:
-                    metadata[f] = aletheialib.attacks.exif(f)
-
-        if ctx.obj['verbose']:
-            for f, exif_data in metadata.items():
-                if exif_data is None:
-                    click.echo(f"{f} is not a valid image")
-                    continue
-
+        verbose = ctx.obj['verbose']
+        for f, exif_data in _get_exif(input_files, verbose=verbose):
+            if verbose:
                 click.echo()
                 click.echo(f'File: {f}')
-                _print_exif(exif_data)
-        else:
-            for f, exif_data in metadata.items():
-                if exif_data is None:
-                    continue
-
+                _print_exif(exif_data, verbose=True)
+            else:
                 click.echo()
                 _print_exif(exif_data)
     else:
@@ -379,7 +374,7 @@ def print_metadata(ctx, input):
             click.echo("Please, provide a valid image!\n")
 
         exif_data = aletheialib.attacks.exif(input)
-        _print_exif(exif_data)
+        _print_exif(exif_data, verbose=True)
     sys.exit(0)
 
 
@@ -402,33 +397,27 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
     import aletheialib.attacks
     import aletheialib.utils
 
+    def _extract_lsb(input_files, *, verbose=False):
+        for f in input_files:
+            if not aletheialib.utils.is_valid_image(f):
+                if verbose:
+                    click.echo(f"{f} is not a valid image")
+                continue
+
+            yield f, aletheialib.attacks.lsb_extract(f, num_lsbs, channels, endian)
+
     if ctx.obj['batch']:
         input_dir = Path(input)
         assert input_dir.is_dir(), "Input must be a directory in batch mode."
         input_files = list(input_dir.rglob("*.*"))
 
-        messages = {}
-        with click.progressbar(input_files, label="Extracting LSBs") as bar:
-            for f in bar:
-                if not aletheialib.utils.is_valid_image(f):
-                    messages[f] = None
-                else:
-                    messages[f] = aletheialib.attacks.lsb_extract(f, num_lsbs, channels, endian)
-
-        if ctx.obj['verbose']:
-            for f, msg in messages.items():
-                if msg is None:
-                    click.echo(f"{f} is not a valid image")
-                    continue
-
+        verbose = ctx.obj['verbose']
+        for f, msg in _extract_lsb(input_files, verbose=verbose):
+            if verbose:
                 click.echo()
                 click.echo(f'File: {f}')
                 click.echo(f'Message: {msg.tobytes()}')
-        else:
-            for f, msg in messages.items():
-                if msg is None:
-                    continue
-
+            else:
                 click.echo()
                 click.echo(f"{f}: {msg.tobytes()}")
     else:
@@ -436,5 +425,8 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
             click.echo("Please, provide a valid image!\n")
 
         msg = aletheialib.attacks.lsb_extract(input, num_lsbs, channels, endian)
-        click.echo(msg.tobytes())
+        if len(msg) == 0:
+            click.echo("No message found")
+        else:
+            click.echo(msg.tobytes())
     sys.exit(0)

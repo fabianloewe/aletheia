@@ -12,10 +12,10 @@ import aletheialib.options as options
 @click.option('--batch/--no-batch', default=False, help="Run a subcommand in batch mode if possible.")
 @click.option('--verbose/--no-verbose', default=False, help="Prints more information.")
 @click.pass_context
-def main(ctx, batch):
+def main(ctx, batch, verbose):
     ctx.ensure_object(dict)
     ctx.obj['batch'] = batch
-    ctx.obj['verbose'] = False
+    ctx.obj['verbose'] = verbose
 
 
 main.add_command(options.auto.auto)
