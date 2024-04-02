@@ -575,10 +575,10 @@ def eof_extract(input_image, output_data):
 
 # {{{ lsb_extract()
 
-def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb') -> np.ndarray:
+def lsb_extract(input_image, bits=1, channels='RGB', endian='little') -> np.ndarray:
     """Extract a message from an image using the LSBs method and print it."""
 
-    def _extract_bits_opt_lsb(data):
+    def _extract_bits_opt_little(data):
         div = 8 // bits
         message = np.zeros(len(data) // div, dtype=np.uint8)
         mask = (1 << bits) - 1
@@ -587,7 +587,7 @@ def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb') -> np.ndar
             message |= (data[i::div] & mask) << shift
         return message
 
-    def _extract_bits_opt_msb(data):
+    def _extract_bits_opt_big(data):
         div = 8 // bits
         message = np.zeros(len(data) // div, dtype=np.uint8)
         mask = (1 << bits) - 1
@@ -596,7 +596,7 @@ def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb') -> np.ndar
             message |= (data[i::div] & mask) << shift
         return message
 
-    def _extract_bits_lsb(data):
+    def _extract_bits_little(data):
         msg_byte = 0
         shift = 0
         message = []
@@ -611,7 +611,7 @@ def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb') -> np.ndar
                 shift -= 8
         return np.array(message, dtype=np.uint8)
 
-    def _extract_bits_msb(data):
+    def _extract_bits_big(data):
         msg_byte = 0
         shift = 8 - bits
         message = []
@@ -643,15 +643,15 @@ def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb') -> np.ndar
     def _extract_message(img_path: Path, convert_mode='RGB'):
         data = _load_image(img_path, convert_mode, channels)
         if bits == 1 or bits.bit_count() == 1:
-            if direction == 'msb':
-                return _extract_bits_opt_msb(data)
+            if endian == 'big':
+                return _extract_bits_opt_big(data)
             else:
-                return _extract_bits_opt_lsb(data)
+                return _extract_bits_opt_little(data)
         else:
-            if direction == 'msb':
-                return _extract_bits_msb(data)
+            if endian == 'big':
+                return _extract_bits_big(data)
             else:
-                return _extract_bits_lsb(data)
+                return _extract_bits_little(data)
 
     return _extract_message(input_image)
 

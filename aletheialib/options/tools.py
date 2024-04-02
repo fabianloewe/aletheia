@@ -362,9 +362,11 @@ def print_metadata(ctx, input):
 
 @tools.command()
 @click.argument('input')
-@click.option('--num-lsbs', default=1, help="Number of LSBs to extract")
-@click.option('--channels', default="RGB", help="Channels to extract")
-@click.option('--endian', default="little", help="The endianness to use for recovering the data")
+@click.option('-n', '--num-lsbs', default=1, help="Number of LSBs to extract")
+@click.option('-c', '--channels', default="RGB", help="Channels to extract")
+@click.option('-e', '--endian', help="The endianness to use for recovering the data",
+              type=click.Choice(['big', 'little']),
+              default="little")
 @click.pass_context
 def lsb_extract(ctx, input, num_lsbs, channels, endian):
     """Extract data from the LSBs.
