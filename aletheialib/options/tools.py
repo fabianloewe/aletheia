@@ -430,3 +430,38 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
         else:
             click.echo(msg.tobytes())
     sys.exit(0)
+
+
+@tools.command()
+@click.argument('cover')
+@click.argument('stego')
+@click.option('-l', '--payload-length', help="Known payload length", type=int)
+def size_diff(cover, stego, payload_length):
+    """Difference in file sizes between two images.
+
+    COVER is the cover image.\n
+    STEGO is the stego image.\n
+    """
+
+    cover = Path(cover)
+    stego = Path(stego)
+    if not cover.is_file():
+        click.echo(f"Cover file not found: {cover}")
+        sys.exit(0)
+    if not stego.is_file():
+        click.echo(f"Stego file not found: {stego}")
+        sys.exit(0)
+
+    cover_size = cover.stat().st_size
+    stego_size = stego.stat().st_size
+    diff = stego_size - cover_size
+    if payload_length:
+        diff -= payload_length
+
+    click.echo(f"Cover size: {cover_size} bytes")
+    click.echo(f"Stego size: {stego_size} bytes")
+    if payload_length:
+        click.echo(f"Payload length: {payload_length} bytes")
+    click.echo(f"Difference: {diff} bytes")
+
+    sys.exit(0)
