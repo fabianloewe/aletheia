@@ -366,7 +366,7 @@ def print_metadata(ctx, input):
                 click.echo()
                 click.echo(f'File: {f}')
                 _print_exif(exif_data, verbose=True)
-            else:
+            elif len(exif_data) > 0:
                 click.echo()
                 _print_exif(exif_data)
     else:
@@ -417,7 +417,7 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
                 click.echo()
                 click.echo(f'File: {f}')
                 click.echo(f'Message: {msg.tobytes()}')
-            else:
+            elif len(msg) > 0:
                 click.echo()
                 click.echo(f"{f}: {msg.tobytes()}")
     else:
