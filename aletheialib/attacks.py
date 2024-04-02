@@ -1,34 +1,26 @@
 #!/usr/bin/python
 
+import multiprocessing
 import os
-import sys
 import shutil
+import sys
+import tempfile
+from cmath import sqrt
+from io import BytesIO
+# from multiprocessing.dummy import Pool as ThreadPool
+from multiprocessing import Pool
 from pathlib import Path
 
+import click
 import magic
-import ntpath
-import tempfile
-import subprocess
-
-from io import BytesIO
-from aletheialib import stegosim, utils
-
 import numpy as np
 import scipy.stats
-from scipy import ndimage
-from cmath import sqrt
-from imageio.v3 import imread, imiter as imsave
-
 from PIL import Image
 from PIL.ExifTags import TAGS
+from imageio.v3 import imread, imiter as imsave
+from scipy import ndimage
 
 from aletheialib.jpeg import JPEG
-
-import multiprocessing
-# from multiprocessing.dummy import Pool as ThreadPool
-from multiprocessing import Pool as ThreadPool
-from multiprocessing import cpu_count
-from multiprocessing import Pool
 
 
 # -- EXIF --
@@ -43,7 +35,9 @@ def exif(filename):
         data = exifdata.get(tag_id)
         if isinstance(data, bytes):
             data = data.decode()
-        print(f"{tag:25}: {data}")
+        click.echo(f"{tag:25}: {data}")
+    else:
+        click.echo("No EXIF data found")
 
 
 # }}}$
@@ -90,7 +84,7 @@ def spa_image(image, channel=0):
     k = np.sum(np.equal(msb[:-1, :], msb[1:, :]).astype(int))
 
     if k == 0:
-        print("ERROR")
+        click.echo("ERROR")
         sys.exit(0)
 
     a = 2 * k
@@ -241,9 +235,9 @@ def calibration_f5(path):
         b11 = beta_kl(dct_0, dct_b, 1, 1)
         beta = (b01 + b10 + b11) / 3
         if beta > 0.05:
-            print("Hidden data found in channel " + str(i) + ":", beta)
+            click.echo(f"Hidden data found in channel {i}: {beta}")
         else:
-            print("No hidden data found in channel " + str(i))
+            click.echo(f"No hidden data found in channel {i}")
 
 
 def calibration_chisquare_mode(path):
@@ -276,16 +270,16 @@ def calibration_chisquare_mode(path):
                         break
                     f_exp.append(h_estim)
                     f_obs.append(h)
-                # print(f_exp, f_obs)
+                # click.echo(f_exp, f_obs)
 
                 chi, p = scipy.stats.chisquare(f_obs, f_exp)
                 p_list.append(p)
 
         p = np.mean(p_list)
         if p < 0.05:
-            print("Hidden data found in channel " + str(i) + ". p-value:", np.round(p, 6))
+            click.echo(f"Hidden data found in channel {i}: {p}")
         else:
-            print("No hidden data found in channel " + str(i))
+            click.echo(f"No hidden data found in channel {i}")
 
 
 def calibration_f5_octave_jpeg(filename, return_result=False):
@@ -307,10 +301,10 @@ def calibration_f5_octave_jpeg(filename, return_result=False):
         if beta > 0.05:
             beta_avg += beta
             if not return_result:
-                print("Hidden data found in channel " + str(i) + ":", beta)
+                click.echo(f"Hidden data found in channel {i}: {beta}")
         else:
             if not return_result:
-                print("No hidden data found in channel " + str(i))
+                click.echo(f"No hidden data found in channel {i}")
     beta_avg /= im_jpeg.components()
     if return_result:
         return beta_avg
@@ -379,25 +373,25 @@ def imgdiff(image1, image2):
     np.set_printoptions(threshold=sys.maxsize)
 
     if len(I1.shape) != len(I2.shape):
-        print("Error, both images must have the same dimensionality")
+        click.echo("Error, both images must have the same dimensionality")
         sys.exit(0)
 
     if len(I1.shape) == 2:
         D = I1 - I2
-        print(D)
+        click.echo(D)
 
     elif len(I1.shape) == 3:
         D1 = I1[:, :, 0] - I2[:, :, 0]
         D2 = I1[:, :, 1] - I2[:, :, 1]
         D3 = I1[:, :, 2] - I2[:, :, 2]
-        print("Channel 1:")
-        print(D1)
-        print("Channel 2:")
-        print(D2)
-        print("Channel 3:")
-        print(D3)
+        click.echo("Channel 1:")
+        click.echo(D1)
+        click.echo("Channel 2:")
+        click.echo(D2)
+        click.echo("Channel 3:")
+        click.echo(D3)
     else:
-        print("Error, too many dimensions:", I1.shape)
+        click.echo(f"Error, too many dimensions: {I1.shape}")
 
 
 # }}}
@@ -409,36 +403,36 @@ def imgdiff_pixels(image1, image2):
     np.set_printoptions(threshold=sys.maxsize)
 
     if len(I1.shape) != len(I2.shape):
-        print("Error, both images must have the same dimensionality")
+        click.echo("Error, both images must have the same dimensionality")
         sys.exit(0)
 
     if len(I1.shape) == 2:
         D = I1 - I2
         pairs = list(zip(I1.ravel(), D.ravel()))
-        print(np.array(pairs, dtype=('i4,i4')).reshape(I1.shape))
+        click.echo(np.array(pairs, dtype=('i4,i4')).reshape(I1.shape))
 
 
     elif len(I1.shape) == 3:
         D1 = I1[:, :, 0] - I2[:, :, 0]
         D2 = I1[:, :, 1] - I2[:, :, 1]
         D3 = I1[:, :, 2] - I2[:, :, 2]
-        print("Channel 1:")
+        click.echo("Channel 1:")
         pairs = list(zip(I1[:, :, 0].ravel(), D1.ravel()))
         pairs_diff = [p for p in pairs if p[1] != 0]
-        # print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,0].shape))
-        print(pairs_diff)
-        print("Channel 2:")
+        # click.echo(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,0].shape))
+        click.echo(pairs_diff)
+        click.echo("Channel 2:")
         pairs = list(zip(I1[:, :, 1].ravel(), D2.ravel()))
         pairs_diff = [p for p in pairs if p[1] != 0]
-        # print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,1].shape))
-        print(pairs_diff)
-        print("Channel 3:")
+        # click.echo(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,1].shape))
+        click.echo(pairs_diff)
+        click.echo("Channel 3:")
         pairs = list(zip(I1[:, :, 2].ravel(), D3.ravel()))
         pairs_diff = [p for p in pairs if p[1] != 0]
-        # print(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,2].shape))
-        print(pairs_diff)
+        # click.echo(np.array(pairs, dtype=('i4,i4')).reshape(I1[:,:,2].shape))
+        click.echo(pairs_diff)
     else:
-        print("Error, too many dimensions:", I1.shape)
+        click.echo(f"Error, too many dimensions: {I1.shape}")
 
 
 # }}}
@@ -447,14 +441,14 @@ def imgdiff_pixels(image1, image2):
 def print_diffs(cover, stego):
     def print_list(l, ln):
         for i in range(0, len(l), ln):
-            print(l[i:i + ln])
+            click.echo(l[i:i + ln])
 
     C = imread(cover, pilmode='RGB').astype('int16')
     S = imread(stego, pilmode='RGB').astype('int16')
     np.set_printoptions(threshold=sys.maxsize)
 
     if len(C.shape) != len(S.shape):
-        print("Error, both images must have the same dimensionality")
+        click.echo("Error, both images must have the same dimensionality")
         sys.exit(0)
 
     if len(C.shape) == 2:
@@ -468,20 +462,20 @@ def print_diffs(cover, stego):
         D1 = S[:, :, 0] - C[:, :, 0]
         D2 = S[:, :, 1] - C[:, :, 1]
         D3 = S[:, :, 2] - C[:, :, 2]
-        print("\nChannel 1:")
+        click.echo("\nChannel 1:")
         pairs = list(zip(C[:, :, 0].ravel(), S[:, :, 0].ravel(), D1.ravel()))
         pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
-        print("\nChannel 2:")
+        click.echo("\nChannel 2:")
         pairs = list(zip(C[:, :, 1].ravel(), S[:, :, 1].ravel(), D2.ravel()))
         pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
-        print("\nChannel 3:")
+        click.echo("\nChannel 3:")
         pairs = list(zip(C[:, :, 2].ravel(), S[:, :, 2].ravel(), D3.ravel()))
         pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
     else:
-        print("Error, too many dimensions:", C.shape)
+        click.echo(f"Error, too many dimensions: {C.shape}")
 
 
 # }}}
@@ -493,7 +487,7 @@ def print_dct_diffs(cover, stego):
     def print_list(l, ln):
         mooc = 0
         for i in range(0, len(l), ln):
-            print(l[i:i + ln])
+            click.echo(l[i:i + ln])
             v = l[i:i + ln][0][2]
             if np.abs(v) > 1:
                 mooc += 1
@@ -509,28 +503,28 @@ def print_dct_diffs(cover, stego):
         # C = C_jpeg["coef_arrays"][i]
         # S = S_jpeg["coef_arrays"][i]
         if C.shape != S.shape:
-            print("WARNING! channels with different size. Channel: ", i)
+            click.echo(f"WARNING! channels with different size. Channel: {i}")
             continue
         D = S - C
-        print("\nChannel " + str(i) + ":")
+        click.echo(f"\nChannel {i}:")
         pairs = list(zip(C.ravel(), S.ravel(), D.ravel()))
         pairs_diff = [p for p in pairs if p[2] != 0]
         print_list(pairs_diff, 5)
 
-    print("\nCommon DCT coefficients frequency variation:")
+    click.echo("\nCommon DCT coefficients frequency variation:")
     for i in range(C_jpeg.components()):
-        print("\nChannel " + str(i) + ":")
+        click.echo(f"\nChannel {i}:")
         nz_coeffs = np.count_nonzero(C_jpeg.coeffs(i))
         changes = np.sum(np.abs(C_jpeg.coeffs(i) - S_jpeg.coeffs(i)))
         rate = round(changes / nz_coeffs, 4)
-        print(f"non zero coeffs: {nz_coeffs}, changes: {changes}, rate: {rate}")
-        print("H BAR    COVER      STEGO       DIFF")
-        print("------------------------------------")
+        click.echo(f"non zero coeffs: {nz_coeffs}, changes: {changes}, rate: {rate}")
+        click.echo("H BAR    COVER      STEGO       DIFF")
+        click.echo("------------------------------------")
         for v in [-4, -3, -2, -1, 0, 1, 2, 3, 4]:
             cover = np.sum(C_jpeg.coeffs(i) == v)
             stego = np.sum(S_jpeg.coeffs(i) == v)
             var = stego - cover
-            print(f"{v:+}: {cover:10d} {stego:10d} {var:10d}")
+            click.echo(f"{v:+}: {cover:10d} {stego:10d} {var:10d}")
 
 
 # }}}
@@ -538,7 +532,7 @@ def print_dct_diffs(cover, stego):
 # {{{ remove_alpha_channel()
 def remove_alpha_channel(input_image, output_image):
     I = imread(input_image)
-    I[:, :, 3] = 255;
+    I[:, :, 3] = 255
     imsave(output_image, I)
 
 
@@ -556,7 +550,7 @@ def eof_extract(input_image, output_data):
     elif ext.lower() in [".png"]:
         eof = b"\x49\x45\x4E\x44\xAE\x42\x60\x82"
     else:
-        print("Please provide a JPG, GIF or PNG file")
+        click.echo("Please provide a JPG, GIF or PNG file")
         sys.exit(0)
 
     raw = open(input_image, 'rb').read()
@@ -568,13 +562,13 @@ def eof_extract(input_image, output_data):
 
     # data[0] contains the original image
     if len(data[1]) == 0:
-        print("No data found")
+        click.echo("No data found")
         sys.exit(0)
     with open(output_data, 'wb') as outf:
         outf.write(data[1])
 
     ft = magic.Magic(mime=True).from_file(output_data)
-    print("\nData extracted from", input_image, "to", output_data, "(" + ft + ")\n")
+    click.echo(f"\nData extracted from {input_image} and saved in {output_data}. Filetype: {ft}")
 
 
 # }}}
@@ -660,6 +654,6 @@ def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb'):
                 return _extract_bits_lsb(data)
 
     message = _extract_message(input_image)
-    print(message.tobytes().decode('utf-8'))
+    click.echo(message.tobytes().decode('utf-8'))
 
 # }}}

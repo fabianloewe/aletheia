@@ -9,9 +9,11 @@ import aletheialib.options as options
 
 
 @click.group()
-@click.option('--batch', is_flag=True, help="Run in batch mode.")
-def main(batch):
-    pass
+@click.option('--batch/--no-batch', default=False, help="Run a subcommand in batch mode if possible.")
+@click.pass_context
+def main(ctx, batch):
+    ctx.ensure_object(dict)
+    ctx.obj['batch'] = batch
 
 
 main.add_command(options.auto.auto)

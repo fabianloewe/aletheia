@@ -32,7 +32,7 @@ def srm(input, output_file):
 @feaext.command()
 @click.argument('input')
 @click.argument('output-file')
-def srmq1():
+def srmq1(input, output_file):
     """Spatial Rich Models with fixed quantization q=1c.
 
     INPUT is the image or directory with the images to analyze.\n
@@ -50,7 +50,7 @@ def srmq1():
 @feaext.command()
 @click.argument('input')
 @click.argument('output-file')
-def scrmq1():
+def scrmq1(input, output_file):
     """Spatial Color Rich Models with fixed quantization q=1c.
 
     INPUT is the image or directory with the images to analyze.\n
@@ -86,8 +86,7 @@ def gfr(input, output_file, quality, rotations):
         click.echo("JPEG quality not provided, using detection via 'identify'")
 
     if rotations == 32:
-        click.echo("Number of rotations for Gabor kernel no provided, using:", \
-                   rotations)
+        click.echo(f"Number of rotations for Gabor kernel no provided, using: {rotations}")
 
     params = {
         "quality": quality,
