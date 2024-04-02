@@ -332,6 +332,12 @@ def print_metadata(ctx, input):
 
     import aletheialib.attacks
 
+    def _print_exif(exif_data):
+        for tag, data in exif_data.items():
+            click.echo(f"{tag:25}: {data}")
+        else:
+            click.echo("No EXIF data found")
+
     if ctx.obj['batch']:
         input_files = Path(input).rglob("*.*")
         metadata = {}
@@ -348,15 +354,13 @@ def print_metadata(ctx, input):
 
             click.echo()
             click.echo(f'File: {f}')
-            for tag, data in exif_data.items():
-                click.echo(f"{tag:25}: {data}")
-            else:
-                click.echo("No EXIF data found")
+            _print_exif(exif_data)
     else:
         if not os.path.isfile(input):
             click.echo("Please, provide a valid image!\n")
 
-        aletheialib.attacks.exif(input)
+        exif_data = aletheialib.attacks.exif(input)
+        _print_exif(exif_data)
     sys.exit(0)
 
 
@@ -392,5 +396,6 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
         if not os.path.isfile(input):
             click.echo("Please, provide a valid image!\n")
 
-        aletheialib.attacks.lsb_extract(input, num_lsbs, channels, endian)
+        msg = aletheialib.attacks.lsb_extract(input, num_lsbs, channels, endian)
+        click.echo(msg.tobytes().decode("utf-8"))
     sys.exit(0)
