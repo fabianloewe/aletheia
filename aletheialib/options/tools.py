@@ -28,7 +28,9 @@ def hpf(ctx, input, output):
     import aletheialib.utils
 
     if ctx.obj['batch']:
-        input_files = Path(input).rglob("*.*")
+        input_dir = Path(input)
+        assert input_dir.is_dir(), "Input must be a directory in batch mode."
+        input_files = list(input_dir.rglob("*.*"))
         output_dir = Path(output)
         assert output_dir.is_dir(), "Output must be a directory in batch mode."
         with click.progressbar(input_files, label="Processing images") as bar:
@@ -121,7 +123,10 @@ def rm_alpha(ctx, input, output):
     import aletheialib.attacks
 
     if ctx.obj['batch']:
-        input_files = Path(input).rglob("*.*")
+        input_dir = Path(input)
+        assert input_dir.is_dir(), "Input must be a directory in batch mode."
+        input_files = list(input_dir.rglob("*.*"))
+
         output_dir = Path(output)
         assert output_dir.is_dir(), "Output must be a directory in batch mode."
         with click.progressbar(input_files, label="Processing images") as bar:
@@ -284,10 +289,10 @@ def print_coeffs(ctx, image, width_range, height_range):
 
 
 @tools.command()
-@click.argument('image')
+@click.argument('input')
 @click.argument('output')
 @click.pass_context
-def eof_extract(ctx, image, output):
+def eof_extract(ctx, input, output):
     """Extract the data after EOF.
 
     IMAGE is the image to extract.
@@ -300,7 +305,10 @@ def eof_extract(ctx, image, output):
     import aletheialib.utils
 
     if ctx.obj['batch']:
-        input_files = Path(image).rglob("*.*")
+        input_dir = Path(input)
+        assert input_dir.is_dir(), "Input must be a directory in batch mode."
+        input_files = list(input_dir.rglob("*.*"))
+
         output_dir = Path(output)
         assert output_dir.is_dir(), "Output must be a directory in batch mode."
 
@@ -310,10 +318,10 @@ def eof_extract(ctx, image, output):
                     continue
                 aletheialib.attacks.eof_extract(f, output_dir / f.name)
     else:
-        if not os.path.isfile(image):
+        if not os.path.isfile(input):
             click.echo("Please, provide a valid image!\n")
 
-        aletheialib.attacks.eof_extract(image, output)
+        aletheialib.attacks.eof_extract(input, output)
     sys.exit(0)
 
 
@@ -338,7 +346,10 @@ def print_metadata(ctx, input):
             click.echo("No EXIF data found")
 
     if ctx.obj['batch']:
-        input_files = Path(input).rglob("*.*")
+        input_dir = Path(input)
+        assert input_dir.is_dir(), "Input must be a directory in batch mode."
+        input_files = list(input_dir.rglob("*.*"))
+
         metadata = {}
         with click.progressbar(input_files, label="Extracting metadata") as bar:
             for f in bar:
@@ -383,7 +394,10 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
     import aletheialib.utils
 
     if ctx.obj['batch']:
-        input_files = Path(input).rglob("*.*")
+        input_dir = Path(input)
+        assert input_dir.is_dir(), "Input must be a directory in batch mode."
+        input_files = list(input_dir.rglob("*.*"))
+
         messages = {}
         with click.progressbar(input_files, label="Extracting LSBs") as bar:
             for f in bar:
