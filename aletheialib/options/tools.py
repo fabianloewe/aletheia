@@ -357,14 +357,23 @@ def print_metadata(ctx, input):
                     metadata[f] = None
                 else:
                     metadata[f] = aletheialib.attacks.exif(f)
-        for f, exif_data in metadata.items():
-            if exif_data is None:
-                click.echo(f"{f} is not a valid image")
-                continue
 
-            click.echo()
-            click.echo(f'File: {f}')
-            _print_exif(exif_data)
+        if ctx.obj['verbose']:
+            for f, exif_data in metadata.items():
+                if exif_data is None:
+                    click.echo(f"{f} is not a valid image")
+                    continue
+
+                click.echo()
+                click.echo(f'File: {f}')
+                _print_exif(exif_data)
+        else:
+            for f, exif_data in metadata.items():
+                if exif_data is None:
+                    continue
+
+                click.echo()
+                _print_exif(exif_data)
     else:
         if not os.path.isfile(input):
             click.echo("Please, provide a valid image!\n")
@@ -406,14 +415,22 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
                 else:
                     messages[f] = aletheialib.attacks.lsb_extract(f, num_lsbs, channels, endian)
 
-        for f, msg in messages.items():
-            if msg is None:
-                click.echo(f"{f} is not a valid image")
-                continue
+        if ctx.obj['verbose']:
+            for f, msg in messages.items():
+                if msg is None:
+                    click.echo(f"{f} is not a valid image")
+                    continue
 
-            click.echo()
-            click.echo(f'File: {f}')
-            click.echo(f'Message: {msg.tobytes().decode("utf-8")}')
+                click.echo()
+                click.echo(f'File: {f}')
+                click.echo(f'Message: {msg.tobytes()}')
+        else:
+            for f, msg in messages.items():
+                if msg is None:
+                    continue
+
+                click.echo()
+                click.echo(f"{f}: {msg.tobytes()}")
     else:
         if not os.path.isfile(input):
             click.echo("Please, provide a valid image!\n")
