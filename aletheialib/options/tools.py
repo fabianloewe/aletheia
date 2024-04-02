@@ -34,7 +34,6 @@ def hpf(ctx, input, output):
         with click.progressbar(input_files, label="Processing images") as bar:
             for f in bar:
                 if not aletheialib.utils.is_valid_image(f):
-                    click.echo(f"{f} is not a valid image")
                     continue
                 aletheialib.attacks.high_pass_filter(f, output_dir / f.name)
     else:
@@ -128,7 +127,6 @@ def rm_alpha(ctx, input, output):
         with click.progressbar(input_files, label="Processing images") as bar:
             for f in bar:
                 if not aletheialib.utils.is_valid_image(f):
-                    click.echo(f"{f} is not a valid image")
                     continue
                 aletheialib.attacks.remove_alpha_channel(f, output_dir / f.name)
     else:
@@ -331,6 +329,7 @@ def print_metadata(ctx, input):
     """
 
     import aletheialib.attacks
+    import aletheialib.utils
 
     def _print_exif(exif_data):
         for tag, data in exif_data.items():
@@ -343,13 +342,13 @@ def print_metadata(ctx, input):
         metadata = {}
         with click.progressbar(input_files, label="Extracting metadata") as bar:
             for f in bar:
-                if not os.path.isfile(f):
+                if not aletheialib.utils.is_valid_image(f):
                     metadata[f] = None
                 else:
                     metadata[f] = aletheialib.attacks.exif(f)
         for f, exif_data in metadata.items():
             if exif_data is None:
-                click.echo(f"File not found: {f}")
+                click.echo(f"{f} is not a valid image")
                 continue
 
             click.echo()
@@ -381,14 +380,23 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
     """
 
     import aletheialib.attacks
+    import aletheialib.utils
 
     if ctx.obj['batch']:
         input_files = Path(input).rglob("*.*")
         messages = {}
         with click.progressbar(input_files, label="Extracting LSBs") as bar:
             for f in bar:
-                messages[f] = aletheialib.attacks.lsb_extract(f, num_lsbs, channels, endian)
+                if not aletheialib.utils.is_valid_image(f):
+                    messages[f] = None
+                else:
+                    messages[f] = aletheialib.attacks.lsb_extract(f, num_lsbs, channels, endian)
+
         for f, msg in messages.items():
+            if msg is None:
+                click.echo(f"{f} is not a valid image")
+                continue
+
             click.echo()
             click.echo(f'File: {f}')
             click.echo(f'Message: {msg.tobytes().decode("utf-8")}')
@@ -397,5 +405,5 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
             click.echo("Please, provide a valid image!\n")
 
         msg = aletheialib.attacks.lsb_extract(input, num_lsbs, channels, endian)
-        click.echo(msg.tobytes().decode("utf-8"))
+        click.echo(msg.tobytes())
     sys.exit(0)
