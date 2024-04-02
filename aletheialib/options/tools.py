@@ -306,12 +306,11 @@ def eof_extract(ctx, image, output):
         output_dir = Path(output)
         assert output_dir.is_dir(), "Output must be a directory in batch mode."
 
-        for f in input_files:
-            if not aletheialib.utils.is_valid_image(f):
-                click.echo(f"{f} is not a valid image")
-                continue
-            click.echo(f'Processing {f}...')
-            aletheialib.attacks.eof_extract(f, output_dir / f.name)
+        with click.progressbar(input_files, label="Extracting data") as bar:
+            for f in bar:
+                if not aletheialib.utils.is_valid_image(f):
+                    continue
+                aletheialib.attacks.eof_extract(f, output_dir / f.name)
     else:
         if not os.path.isfile(image):
             click.echo("Please, provide a valid image!\n")
@@ -335,9 +334,24 @@ def print_metadata(ctx, input):
 
     if ctx.obj['batch']:
         input_files = Path(input).rglob("*.*")
-        for f in input_files:
-            click.echo(f'Processing {f}...')
-            aletheialib.attacks.exif(f)
+        metadata = {}
+        with click.progressbar(input_files, label="Extracting metadata") as bar:
+            for f in bar:
+                if not os.path.isfile(f):
+                    metadata[f] = None
+                else:
+                    metadata[f] = aletheialib.attacks.exif(f)
+        for f, exif_data in metadata.items():
+            if exif_data is None:
+                click.echo(f"File not found: {f}")
+                continue
+
+            click.echo()
+            click.echo(f'File: {f}')
+            for tag, data in exif_data.items():
+                click.echo(f"{tag:25}: {data}")
+            else:
+                click.echo("No EXIF data found")
     else:
         if not os.path.isfile(input):
             click.echo("Please, provide a valid image!\n")
@@ -364,9 +378,14 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
 
     if ctx.obj['batch']:
         input_files = Path(input).rglob("*.*")
+        messages = {}
         with click.progressbar(input_files, label="Extracting LSBs") as bar:
             for f in bar:
-                aletheialib.attacks.lsb_extract(f, num_lsbs, channels, endian)
+                messages[f] = aletheialib.attacks.lsb_extract(f, num_lsbs, channels, endian)
+        for f, msg in messages.items():
+            click.echo()
+            click.echo(f'File: {f}')
+            click.echo(f'Message: {msg.tobytes().decode("utf-8")}')
     else:
         if not os.path.isfile(input):
             click.echo("Please, provide a valid image!\n")

@@ -26,18 +26,18 @@ from aletheialib.jpeg import JPEG
 # -- EXIF --
 
 # {{{ exif()
-def exif(filename):
+def exif(filename) -> dict:
     image = Image.open(filename)
 
     exifdata = image.getexif()
+    res = {}
     for tag_id in exifdata:
         tag = TAGS.get(tag_id, tag_id)
         data = exifdata.get(tag_id)
         if isinstance(data, bytes):
             data = data.decode()
-        click.echo(f"{tag:25}: {data}")
-    else:
-        click.echo("No EXIF data found")
+        res[tag] = data
+    return res
 
 
 # }}}$
@@ -575,7 +575,7 @@ def eof_extract(input_image, output_data):
 
 # {{{ lsb_extract()
 
-def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb'):
+def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb') -> np.ndarray:
     """Extract a message from an image using the LSBs method and print it."""
 
     def _extract_bits_opt_lsb(data):
@@ -653,7 +653,7 @@ def lsb_extract(input_image, bits=1, channels='RGB', direction='lsb'):
             else:
                 return _extract_bits_lsb(data)
 
-    message = _extract_message(input_image)
-    click.echo(message.tobytes().decode('utf-8'))
+    return _extract_message(input_image)
+
 
 # }}}
