@@ -70,6 +70,7 @@ def _get_exif_data(image):
 
 
 def exif(filename) -> dict:
+    """Return the EXIF data of an image."""
     image = Image.open(filename)
     return _get_exif_data(image)
 
@@ -101,6 +102,7 @@ def _get_jfif_data(image):
 
 
 def metadata(filename) -> dict:
+    """Return the metadata of an image."""
     image = Image.open(filename)
     jfif_data = _get_jfif_data(image)
     exif_data = _get_exif_data(image)
@@ -113,6 +115,18 @@ def metadata(filename) -> dict:
         **jfif_data,
         **exif_data
     }
+
+
+def metadata_diff(cover, stego) -> dict:
+    """Return the differences between the metadata of two images."""
+    cover_data = metadata(cover)
+    stego_data = metadata(stego)
+    diff = {}
+    for key in cover_data.keys() | stego_data.keys():
+        if cover_data.get(key) != stego_data.get(key):
+            diff[key] = (cover_data.get(key), stego_data.get(key))
+
+    return diff
 
 
 # -- SAMPLE PAIR ATTACK --
