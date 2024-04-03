@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import io
 import multiprocessing
 import os
 import shutil
@@ -15,8 +15,8 @@ import click
 import magic
 import numpy as np
 import scipy.stats
-from PIL import Image
-from PIL.ExifTags import TAGS
+from PIL import Image, ImageCms
+from PIL.ExifTags import TAGS, IFD
 from imageio.v3 import imread, imiter as imsave
 from scipy import ndimage
 
@@ -26,24 +26,93 @@ from aletheialib.jpeg import JPEG
 # -- EXIF --
 
 # {{{ exif()
-def exif(filename) -> dict:
-    image = Image.open(filename)
 
-    exifdata = image.getexif()
+def _get_tag_data(exifdata, tag_id):
+    tag = TAGS.get(tag_id, tag_id)
+    data = exifdata.get(tag_id)
+    if isinstance(data, bytes):
+        try:
+            data = data.decode()
+        except UnicodeDecodeError:
+            data = data.hex()
+    return tag, data
+
+
+def _get_exif_data(image):
+    exifdata = image.getexif()  # The first provides all information
     res = {}
     for tag_id in exifdata:
-        tag = TAGS.get(tag_id, tag_id)
-        data = exifdata.get(tag_id)
-        if isinstance(data, bytes):
-            try:
-                data = data.decode()
-            except UnicodeDecodeError:
-                data = data.hex()
+        tag, data = _get_tag_data(exifdata, tag_id)
         res[tag] = data
+
+    try:
+        for tag_id in exifdata.get_ifd(IFD.GPSInfo):
+            tag, data = _get_tag_data(exifdata, tag_id)
+            res[tag] = data
+    except KeyError:
+        pass
+
+    try:
+        for tag_id in exifdata.get_ifd(IFD.Makernote):
+            tag, data = _get_tag_data(exifdata, tag_id)
+            res[tag] = data
+    except KeyError:
+        pass
+
+    try:
+        for tag_id in exifdata.get_ifd(IFD.Interop):
+            tag, data = _get_tag_data(exifdata, tag_id)
+            res[tag] = data
+    except KeyError:
+        pass
+
     return res
 
 
-# }}}$
+def exif(filename) -> dict:
+    image = Image.open(filename)
+    return _get_exif_data(image)
+
+
+# }}}
+
+def _get_icc_profile_desc(icc_profile_data):
+    f = io.BytesIO(icc_profile_data)
+    prf = ImageCms.ImageCmsProfile(f)
+    try:
+        return prf.profile.profile_description
+    except AttributeError:
+        return None
+
+
+def _get_jfif_data(image):
+    jfifdata = {
+        'JFIFVersion': image.info.get('jfif_version'),
+        'ResolutionUnit': image.info.get('jfif_unit'),
+        'XResolution': image.info.get('jfif_density')[0] if image.info.get('jfif_density') else None,
+        'YResolution': image.info.get('jfif_density')[1] if image.info.get('jfif_density') else None,
+        'DPI': image.info.get('dpi'),
+        'Thumbnail': image.info.get('jfif_thumbnail'),
+        'Progressive': image.info.get('progressive'),
+        'Progression': image.info.get('progression'),
+        'ICCProfile': _get_icc_profile_desc(image.info.get('icc_profile')) if image.info.get('icc_profile') else None,
+    }
+    return {k: v for k, v in jfifdata.items() if v is not None}
+
+
+def metadata(filename) -> dict:
+    image = Image.open(filename)
+    jfif_data = _get_jfif_data(image)
+    exif_data = _get_exif_data(image)
+    return {
+        'Size': os.path.getsize(filename),
+        'Format': image.format,
+        'Mode': image.mode,
+        'Height': image.height,
+        'Width': image.width,
+        **jfif_data,
+        **exif_data
+    }
 
 
 # -- SAMPLE PAIR ATTACK --
@@ -688,4 +757,3 @@ def size_diff(image_pairs, *, payload_length=None, verbose=False):
     return results
 
 # }}}
-

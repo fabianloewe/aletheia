@@ -336,40 +336,40 @@ def print_metadata(ctx, input):
     import aletheialib.attacks
     import aletheialib.utils
 
-    def _print_exif(exif_data, *, verbose=False):
+    def _print_metadata(exif_data, *, verbose=False):
         for tag, data in exif_data.items():
             click.echo(f"{tag:25}: {data}")
         else:
             if verbose:
                 click.echo("No EXIF data found")
 
-    def _get_exif(input_files, *, verbose=False):
+    def _get_metadata(input_files, *, verbose=False):
         for f in input_files:
             if not aletheialib.utils.is_valid_image(f):
                 if verbose:
                     click.echo(f"{f} is not a valid image")
                 continue
 
-            yield f, aletheialib.attacks.exif(f)
+            yield f, aletheialib.attacks.metadata(f)
 
     if ctx.obj['batch']:
         input_files = get_files(ctx, input)
 
         verbose = ctx.obj['verbose']
-        for f, exif_data in _get_exif(input_files, verbose=verbose):
+        for f, exif_data in _get_metadata(input_files, verbose=verbose):
             if verbose:
                 click.echo()
                 click.echo(f'File: {f}')
-                _print_exif(exif_data, verbose=True)
+                _print_metadata(exif_data, verbose=True)
             elif len(exif_data) > 0:
                 click.echo()
-                _print_exif(exif_data)
+                _print_metadata(exif_data)
     else:
         if not os.path.isfile(input):
             click.echo("Please, provide a valid image!\n")
 
         exif_data = aletheialib.attacks.exif(input)
-        _print_exif(exif_data, verbose=True)
+        _print_metadata(exif_data, verbose=True)
     sys.exit(0)
 
 
