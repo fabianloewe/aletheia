@@ -9,13 +9,17 @@ import aletheialib.options as options
 
 
 @click.group()
-@click.option('--batch/--no-batch', default=False, help="Run a subcommand in batch mode if possible.")
-@click.option('--verbose/--no-verbose', default=False, help="Prints more information.")
+@click.option('-b', '--batch/--no-batch', default=False, help="Run a subcommand in batch mode if possible.")
+@click.option('-v', '--verbose/--no-verbose', default=False, help="Prints more information.")
+@click.option('-r', '--range', default=None,
+              help="Range of images to process (beginning at 0 and excluding right). Example: 1 10",
+              nargs=2, type=int)
 @click.pass_context
-def main(ctx, batch, verbose):
+def main(ctx, batch, verbose, range):
     ctx.ensure_object(dict)
     ctx.obj['batch'] = batch
     ctx.obj['verbose'] = verbose
+    ctx.obj['range'] = range
 
 
 main.add_command(options.auto.auto)

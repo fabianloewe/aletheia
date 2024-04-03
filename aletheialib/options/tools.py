@@ -4,6 +4,8 @@ from pathlib import Path
 
 import click
 
+from aletheialib.utils import get_files
+
 
 @click.group()
 def tools():
@@ -28,9 +30,8 @@ def hpf(ctx, input, output):
     import aletheialib.utils
 
     if ctx.obj['batch']:
-        input_dir = Path(input)
-        assert input_dir.is_dir(), "Input must be a directory in batch mode."
-        input_files = list(input_dir.rglob("*.*"))
+        input_files = get_files(ctx, input)
+
         output_dir = Path(output)
         assert output_dir.is_dir(), "Output must be a directory in batch mode."
         with click.progressbar(input_files, label="Processing images") as bar:
@@ -123,9 +124,7 @@ def rm_alpha(ctx, input, output):
     import aletheialib.attacks
 
     if ctx.obj['batch']:
-        input_dir = Path(input)
-        assert input_dir.is_dir(), "Input must be a directory in batch mode."
-        input_files = list(input_dir.rglob("*.*"))
+        input_files = get_files(ctx, input)
 
         output_dir = Path(output)
         assert output_dir.is_dir(), "Output must be a directory in batch mode."
@@ -305,9 +304,7 @@ def eof_extract(ctx, input, output):
     import aletheialib.utils
 
     if ctx.obj['batch']:
-        input_dir = Path(input)
-        assert input_dir.is_dir(), "Input must be a directory in batch mode."
-        input_files = list(input_dir.rglob("*.*"))
+        input_files = get_files(ctx, input)
 
         output_dir = Path(output)
         assert output_dir.is_dir(), "Output must be a directory in batch mode."
@@ -356,9 +353,7 @@ def print_metadata(ctx, input):
             yield f, aletheialib.attacks.exif(f)
 
     if ctx.obj['batch']:
-        input_dir = Path(input)
-        assert input_dir.is_dir(), "Input must be a directory in batch mode."
-        input_files = list(input_dir.rglob("*.*"))
+        input_files = get_files(ctx, input)
 
         verbose = ctx.obj['verbose']
         for f, exif_data in _get_exif(input_files, verbose=verbose):
@@ -407,9 +402,7 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
             yield f, aletheialib.attacks.lsb_extract(f, num_lsbs, channels, endian)
 
     if ctx.obj['batch']:
-        input_dir = Path(input)
-        assert input_dir.is_dir(), "Input must be a directory in batch mode."
-        input_files = list(input_dir.rglob("*.*"))
+        input_files = get_files(ctx, input)
 
         verbose = ctx.obj['verbose']
         for f, msg in _extract_lsb(input_files, verbose=verbose):
@@ -436,12 +429,14 @@ def lsb_extract(ctx, input, num_lsbs, channels, endian):
 @click.argument('cover')
 @click.argument('stego')
 @click.option('-l', '--payload-length', help="Known payload length", type=int)
-def size_diff(cover, stego, payload_length):
+def print_sizes(cover, stego, payload_length):
     """Difference in file sizes between two images.
 
     COVER is the cover image.\n
     STEGO is the stego image.\n
     """
+
+    import aletheialib.attacks
 
     cover = Path(cover)
     stego = Path(stego)
@@ -452,16 +447,5 @@ def size_diff(cover, stego, payload_length):
         click.echo(f"Stego file not found: {stego}")
         sys.exit(0)
 
-    cover_size = cover.stat().st_size
-    stego_size = stego.stat().st_size
-    diff = stego_size - cover_size
-    if payload_length:
-        diff -= payload_length
-
-    click.echo(f"Cover size: {cover_size} bytes")
-    click.echo(f"Stego size: {stego_size} bytes")
-    if payload_length:
-        click.echo(f"Payload length: {payload_length} bytes")
-    click.echo(f"Difference: {diff} bytes")
-
+    aletheialib.attacks.size_diff([(cover, stego)], payload_length=payload_length, verbose=True)
     sys.exit(0)

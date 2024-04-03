@@ -661,30 +661,31 @@ def lsb_extract(input_image, bits=1, channels='RGB', endian='little') -> np.ndar
 
 # }}}
 
-# {{{ avg_size_diff()
+# {{{ size_diff()
 
-def avg_size_diff(image_pairs, *, payload_size=None, verbose=False):
-    """Calculate the average size difference between cover and stego images.
+def size_diff(image_pairs, *, payload_length=None, verbose=False):
+    """Calculate the size difference between cover and stego images.
 
     The image_pairs is a list of tuples with the cover and stego image paths.
 
     :param image_pairs: list of tuples with cover and stego image paths
-    :param payload_size: payload size in bytes
+    :param payload_length: payload size in bytes
     :param verbose: whether to print the differences
     :return: the average size difference
     """
 
-    diffs = []
+    results = []
     for cover, stego in image_pairs:
         cover_size = os.path.getsize(cover)
         stego_size = os.path.getsize(stego)
         diff = stego_size - cover_size
-        if payload_size:
-            diff -= payload_size
+        if payload_length:
+            diff -= payload_length
+        percent = diff / cover_size * 100
         if verbose:
-            click.echo(f"Cover: {cover_size} bytes, Stego: {stego_size} bytes, Diff: {diff} bytes")
-        diffs.append(diff)
-    return np.mean(diffs)
+            click.echo(f"Cover: {cover_size} bytes, Stego: {stego_size} bytes, Diff: {diff} bytes ({percent:.2f}%)")
+        results.append((cover, stego, diff, percent))
+    return results
 
 # }}}
 

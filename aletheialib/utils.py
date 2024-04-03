@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import zipfile
+from pathlib import Path
 
 import click
 from PIL import Image
@@ -293,4 +294,14 @@ def download_e4s():
             click.echo(f"Error, {remote_file} cannot be downloaded")
             sys.exit(0)
 
+
 # }}}
+
+def get_files(ctx, path, *, name='Input'):
+    _dir = Path(path)
+    assert _dir.is_dir(), f"{name} must be a directory in batch mode."
+    files = list(_dir.rglob("*.*"))
+    files.sort()
+
+    rng = ctx.obj['range']
+    return files[rng[0]:rng[1]] if rng else files
