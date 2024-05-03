@@ -35,7 +35,7 @@ exifread.logger.disabled = True
 def exif(filename) -> dict:
     """Return the EXIF data of an image."""
     with ExifTool() as exif:
-        return exif.get_metadata(filename)
+        return exif.get_metadata(str(filename))
 
 
 # }}}
