@@ -12,115 +12,39 @@ from multiprocessing import Pool
 from pathlib import Path
 
 import click
+import exifread
 import magic
 import numpy as np
 import scipy.stats
 from PIL import Image, ImageCms
-from PIL.ExifTags import TAGS, IFD
+from PIL.ExifTags import TAGS
 from imageio.v3 import imread, imiter as imsave
 from scipy import ndimage
 
+from aletheialib.exiftool import ExifTool
 from aletheialib.jpeg import JPEG
+
+exifread.logger.disabled = True
 
 
 # -- EXIF --
 
 # {{{ exif()
 
-def _get_tag_data(exifdata, tag_id):
-    tag = TAGS.get(tag_id, tag_id)
-    data = exifdata.get(tag_id)
-    if isinstance(data, bytes):
-        try:
-            data = data.decode()
-        except UnicodeDecodeError:
-            data = data.hex()
-    return tag, data
-
-
-def _get_exif_data(image):
-    exifdata = image.getexif()  # The first provides all information
-    res = {}
-    for tag_id in exifdata:
-        tag, data = _get_tag_data(exifdata, tag_id)
-        res[tag] = data
-
-    try:
-        for tag_id in exifdata.get_ifd(IFD.GPSInfo):
-            tag, data = _get_tag_data(exifdata, tag_id)
-            res[tag] = data
-    except KeyError:
-        pass
-
-    try:
-        for tag_id in exifdata.get_ifd(IFD.Makernote):
-            tag, data = _get_tag_data(exifdata, tag_id)
-            res[tag] = data
-    except KeyError:
-        pass
-
-    try:
-        for tag_id in exifdata.get_ifd(IFD.Interop):
-            tag, data = _get_tag_data(exifdata, tag_id)
-            res[tag] = data
-    except KeyError:
-        pass
-
-    return res
-
 
 def exif(filename) -> dict:
     """Return the EXIF data of an image."""
-    image = Image.open(filename)
-    return _get_exif_data(image)
+    with ExifTool() as exif:
+        return exif.get_metadata(filename)
 
 
 # }}}
 
-def _get_icc_profile_desc(icc_profile_data):
-    f = io.BytesIO(icc_profile_data)
-    prf = ImageCms.ImageCmsProfile(f)
-    try:
-        return prf.profile.profile_description
-    except AttributeError:
-        return None
-
-
-def _get_jfif_data(image):
-    jfifdata = {
-        'JFIFVersion': image.info.get('jfif_version'),
-        'ResolutionUnit': image.info.get('jfif_unit'),
-        'XResolution': image.info.get('jfif_density')[0] if image.info.get('jfif_density') else None,
-        'YResolution': image.info.get('jfif_density')[1] if image.info.get('jfif_density') else None,
-        'DPI': image.info.get('dpi'),
-        'Thumbnail': image.info.get('jfif_thumbnail'),
-        'Progressive': image.info.get('progressive'),
-        'Progression': image.info.get('progression'),
-        'ICCProfile': _get_icc_profile_desc(image.info.get('icc_profile')) if image.info.get('icc_profile') else None,
-    }
-    return {k: v for k, v in jfifdata.items() if v is not None}
-
-
-def metadata(filename) -> dict:
-    """Return the metadata of an image."""
-    image = Image.open(filename)
-    jfif_data = _get_jfif_data(image)
-    exif_data = _get_exif_data(image)
-    return {
-        'Size': os.path.getsize(filename),
-        'Format': image.format,
-        'Mode': image.mode,
-        'Height': image.height,
-        'Width': image.width,
-        **jfif_data,
-        **exif_data
-    }
-
 
 def metadata_diff(cover, stego) -> dict:
     """Return the differences between the metadata of two images."""
-    cover_data = metadata(cover)
-    stego_data = metadata(stego)
+    cover_data = exif(cover)
+    stego_data = exif(stego)
     diff = {}
     for key in cover_data.keys() | stego_data.keys():
         if cover_data.get(key) != stego_data.get(key):
