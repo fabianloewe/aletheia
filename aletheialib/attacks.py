@@ -20,8 +20,10 @@ from PIL import Image, ImageCms
 from PIL.ExifTags import TAGS
 from imageio.v3 import imread, imiter as imsave
 from scipy import ndimage
+from cmath import sqrt
+from imageio.v3 import imread, imiter as imsave
 
-from aletheialib.exiftool import ExifTool
+from exiftool import ExifToolHelper
 from aletheialib.jpeg import JPEG
 
 exifread.logger.disabled = True
@@ -32,10 +34,10 @@ exifread.logger.disabled = True
 # {{{ exif()
 
 
-def exif(filename) -> dict:
+def exif(filenames):
     """Return the EXIF data of an image."""
-    with ExifTool() as exif:
-        return exif.get_metadata(str(filename))
+    with ExifToolHelper() as exif:
+        return exif.get_metadata([str(filenames)] if not isinstance(filenames, list) else map(str, filenames))
 
 
 # }}}
@@ -43,8 +45,7 @@ def exif(filename) -> dict:
 
 def metadata_diff(cover, stego) -> dict:
     """Return the differences between the metadata of two images."""
-    cover_data = exif(cover)
-    stego_data = exif(stego)
+    cover_data, stego_data = exif([cover, stego])
     diff = {}
     for key in cover_data.keys() | stego_data.keys():
         if cover_data.get(key) != stego_data.get(key):
