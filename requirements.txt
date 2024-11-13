@@ -11,3 +11,5 @@ steganogan
 python-magic
 efficientnet
 Pillow
+click
+pyexiftool
