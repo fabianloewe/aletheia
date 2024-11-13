@@ -2,3 +2,5 @@
 *.fea
 .idea/
 venv/
+dist/
+.pypirc

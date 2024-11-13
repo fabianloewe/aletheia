@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = 'Aletheia'
+description = 'Image steganalysis using state-of-the-art machine learning techniques'
+license = {file = "LICENSE.txt"}
+author = [
+    {name = 'Daniel Lerch Hostalot', email = 'dlerch@gmail.com'},
+    {name = 'Fabian Loewe', email = 'loewe.fabian@th-brandenburg.de'}
+]
+version = '0.3'
+dependencies = [
+    'imageio', 'numpy', 'scipy', 'tensorflow', 'scikit-learn',
+    'pandas', 'hdf5storage', 'h5py', 'matplotlib',
+    'steganogan', 'python-magic', 'efficientnet', 'Pillow', 'click',
+    'pyexiftool'
+]
+readme = "README.md"
+
+[project.urls]
+Repository = "https://attr-git.th-brandenburg.de/floewe/aletheia.git"
+
+[project.scripts]
+aletheia = "aleitheia:main"
+
+[project.optional-dependencies]
+dev = [
+    "twine"
+]
+
+[tool.hatch.build]
+include = [
+    "aletheialib",
+    "aletheia-cache",
+    "aletheia-models",
+    "aletheia-resources",
+    "aletheia.py"
+]
