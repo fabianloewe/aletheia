@@ -21,7 +21,7 @@ from PIL.ExifTags import TAGS
 from imageio.v3 import imread, imiter as imsave
 from scipy import ndimage
 
-from aletheialib.exiftool import ExifTool
+from exiftool import ExifToolHelper
 from aletheialib.jpeg import JPEG
 
 exifread.logger.disabled = True
@@ -32,10 +32,10 @@ exifread.logger.disabled = True
 # {{{ exif()
 
 
-def exif(filename) -> dict:
+def exif(filenames):
     """Return the EXIF data of an image."""
-    with ExifTool() as exif:
-        return exif.get_metadata(str(filename))
+    with ExifToolHelper() as exif:
+        return exif.get_metadata([str(filenames)] if not isinstance(filenames, list) else map(str, filenames))
 
 
 # }}}
@@ -43,8 +43,7 @@ def exif(filename) -> dict:
 
 def metadata_diff(cover, stego) -> dict:
     """Return the differences between the metadata of two images."""
-    cover_data = exif(cover)
-    stego_data = exif(stego)
+    cover_data, stego_data = exif([cover, stego])
     diff = {}
     for key in cover_data.keys() | stego_data.keys():
         if cover_data.get(key) != stego_data.get(key):
@@ -585,16 +584,8 @@ def eof_extract(input_image, output_data):
 
 # {{{ lsb_extract()
 
-def lsb_extract(input_image, bits=1, channels='RGB', endian='little', direction='row') -> np.ndarray:
-    """Extract a message from an image using the LSBs method and returns it.
-
-    :param input_image: the input image
-    :param bits: the number of bits to extract
-    :param channels: the channels to extract the message from. Options: 'R', 'G', 'B', 'A' or a combination of them. **Default**: 'RGB'
-    :param endian: the endianness of the message. Options: 'little' or 'big'. **Default**: 'little'
-    :param direction: the direction in which to traverse the image. Options: 'row' or 'col'. **Default**: 'row'
-    :return: the extracted message
-    """
+def lsb_extract(input_image, bits=1, channels='RGB', endian='little') -> np.ndarray:
+    """Extract a message from an image using the LSBs method and print it."""
 
     def _extract_bits_opt_little(data):
         div = 8 // bits
@@ -646,23 +637,20 @@ def lsb_extract(input_image, bits=1, channels='RGB', endian='little', direction=
 
     _COL_MAP = {'R': 0, 'G': 1, 'B': 2, 'A': 3}
 
-    def _load_image(img_path: Path, convert_mode='RGB', channels=None, direction='row'):
+    def _load_image(img_path: Path, convert_mode='RGB', channels=None):
         if 'A' in channels:
             convert_mode = 'RGBA'
 
         with Image.open(img_path) as img:
             arr = np.array(img.convert(convert_mode))
 
-        if direction == 'col' or direction == 'column':
-            arr = arr.transpose(1, 0, 2)
-
         channels = [*channels] if channels else None
         if (convert_mode == 'RGB' and 0 < len(channels) < 3) or (convert_mode == 'RGBA' and 0 < len(channels) < 4):
-            arr = arr[:, :, [_COL_MAP[c] for c in channels]]
+            arr = arr[..., [_COL_MAP[c] for c in channels]]
         return arr.reshape(-1)
 
     def _extract_message(img_path: Path, convert_mode='RGB'):
-        data = _load_image(img_path, convert_mode, channels, direction)
+        data = _load_image(img_path, convert_mode, channels)
         if bits == 1 or bits.bit_count() == 1:
             if endian == 'big':
                 return _extract_bits_opt_big(data)
